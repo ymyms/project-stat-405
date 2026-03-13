@@ -1,0 +1,103 @@
+---
+title: "Project Proposal"
+author: "Jenni \\ Max \\ Yingming Sha 39664552"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Team Information
+
+**Team members:** [Teammate Name] - [Teammate Name] - Yingming Sha
+
+**Public repository:**
+<https://github.com/ymyms/stat-405-project>
+
+The repository contains commits from all team members and will be used to store data, code and the report.
+
+# Candidate Datasets
+
+## Main Dataset: NBA Players Dataset
+
+**URL:**\
+<https://www.kaggle.com/datasets/justinas/nba-players-data>
+
+This dataset contains information on players who have appeared on NBA team rosters over more than two decades. Each observation corresponds to a player-season entry and includes demographic variables such as age, height, weight, and place of birth, along with biographical details like the team played for, draft year, and draft round. The dataset also includes basic box score statistics such as games played and average numbers of points, rebounds, and assists. Together, these variables provide both physical characteristics of players and measures of their performance.
+
+```{r}
+nba <- read.csv("all_seasons.csv")
+head(nba)
+```
+
+This dataset is suitable for our project because it includes both player attributes and performance statistics that can be analyzed using Bayesian. In particular, variables such as height and weight allow us to study the relationship between players’ physical characteristics. Since the dataset contains many observations across multiple seasons, it provides enough data to estimate posterior distributions and compare different Bayesian modeling approaches.
+
+## Backup Dataset: Olympic Athletes Dataset
+
+**URL:**\
+<https://www.kaggle.com/datasets/abdullahmeo/120-years-of-olympic-athletes-dataset>
+
+This dataset contains information on athletes who participated in the modern Olympic Games from Athens 1896 to Rio 2016, covering more than 120 years of Olympic history. The dataset includes 271,116 observations and 15 variables, where each row corresponds to an athlete competing in a specific Olympic event. The variables include demographic characteristics such as sex, age, height, and weight, as well as information about the athlete’s team, country (NOC code), sport, and event. The dataset also records the year and location of the Olympic Games, along with medal outcomes (Gold, Silver, Bronze, or no medal). Overall, the dataset provides a broad overview of athlete characteristics and participation across many sports and countries over time.
+
+```{r}
+olympic <- read.csv("athlete_events.csv")
+head(olympic)
+```
+
+This dataset serves as a suitable backup for our project because it also contains physical attributes such as height and weight, along with measurable outcomes such as medal results. These variables allow similar Bayesian analyses to those proposed for the NBA dataset, such as modeling relationships between physical characteristics and athletic performance. In addition, the large number of observations across many years provides sufficient data for estimating posterior distributions and comparing Bayesian models if we choose to use this dataset.
+
+# Scientific Questions (will be decided after further discussion)
+
+Our main goal is to study relationships between physical attributes and basketball outcomes using Bayesian inference.
+
+Our primary scientific question is:
+
+**What is the posterior distribution of the slope parameter describing the relationship between NBA player height and weight?**
+
+Equivalently, we want to estimate the posterior distribution of the slope coefficient in a regression model of player weight on height, as well as the posterior expectation $E[\beta \mid \text{data}]$.
+
+A secondary question we may investigate is:
+
+**How does player height affect the probability that a player averages more than 20 points per game?**
+
+These questions are well suited to Bayesian methods because they allow us to quantify uncertainty, incorporate prior information, and compare posterior distributions under different model assumptions.
+
+# Proposed Methodology
+
+## Model 1: ...
+
+...
+
+## Model 2: ...
+
+...
+
+# Posterior Computation Plan
+
+We plan to use at least two methods for posterior computation:
+
+1.  ...
+2.  ...
+
+This will allow us to compare posterior approximations and assess their agreement.
+
+# Model Checking and Validation
+
+We plan to evaluate our Bayesian models using:
+
+-   ...
+-   ...
+-   ...
+-   ...
+-   ...
+
+# Team Contribution Plan
+
+To ensure all team members contribute roughly equally, we plan the following division of work:
+
+-   **[Teammate Name]:** ...
+-   **[Teammate Name]:** ...
+-   **Yingming Sha:** ...
+
+All team members will contribute to ...
