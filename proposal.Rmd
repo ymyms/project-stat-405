@@ -1,6 +1,8 @@
 ---
 title: "Project Proposal"
-author: "Jenni 23988835\\ Max Yin 12580312\\ Yingming Sha 39664552"
+author: "Jenni 23988835
+\\ Max Yin 12580312\\ 
+Yingming Sha 39664552"
 output: pdf_document
 ---
 
@@ -24,14 +26,15 @@ The repository contains commits from all team members and will be used to store 
 **URL:**\
 <https://www.kaggle.com/datasets/justinas/nba-players-data>
 
-This dataset contains information on players who have appeared on NBA team rosters over more than two decades. Each observation corresponds to a player-season entry and includes demographic variables such as age, height, weight, and place of birth, along with biographical details like the team played for, draft year, and draft round. The dataset also includes basic box score statistics such as games played and average numbers of points, rebounds, and assists. Together, these variables provide both physical characteristics of players and measures of their performance.
+This dataset contains information on players who have appeared on NBA team rosters over more than two decades. Each observation corresponds to a player-season entry and includes demographic variables such as age, height, weight, and place of birth, along with biographical details like the team played for, draft year, and draft round. The dataset also includes basic box score statistics such as games played and average numbers of points, rebounds, and assists. Together, these variables provide both physical characteristics of players and measures of their performance. This dataset contains 12844 observations and 22 columns.
 
-```{r}
+```{r,echo=FALSE}
 nba <- read.csv("all_seasons.csv")
 head(nba)
+dim(nba)
 ```
 
-This dataset is suitable for our project because it includes both player attributes and performance statistics that can be analyzed using Bayesian. In particular, variables such as height allow us to study the relationship between players’ physical characteristics. Since the dataset contains many observations across multiple seasons, it provides enough data to estimate posterior distributions and compare different Bayesian modeling approaches.
+This dataset is suitable for our project because it includes both player attributes and performance statistics that can be analyzed using Bayesian inference. In particular, variables such as height allow us to assess the players’ physical differences. Since the dataset contains many observations across multiple seasons, it provides enough data to estimate posterior distributions and compare different Bayesian modeling approaches.
 
 ## Backup Dataset: Olympic Athletes Dataset
 
@@ -40,20 +43,20 @@ This dataset is suitable for our project because it includes both player attribu
 
 This dataset contains information on athletes who participated in the modern Olympic Games from Athens 1896 to Rio 2016, covering more than 120 years of Olympic history. The dataset includes 271,116 observations and 15 variables, where each row corresponds to an athlete competing in a specific Olympic event. The variables include demographic characteristics such as sex, age, height, and weight, as well as information about the athlete’s team, country (NOC code), sport, and event. The dataset also records the year and location of the Olympic Games, along with medal outcomes (Gold, Silver, Bronze, or no medal). Overall, the dataset provides a broad overview of athlete characteristics and participation across many sports and countries over time.
 
-```{r}
+```{r,echo=F}
 olympic <- read.csv("athlete_events.csv")
 head(olympic)
+dim(olympic)
 ```
 
 This dataset serves as a suitable backup for our project because it also contains physical attributes such as height along with measurable outcomes such as medal results. These variables allow similar Bayesian analyses to those proposed for the NBA dataset, such as modeling relationships between physical characteristics and athletic performance. In addition, the large number of observations across many years provides sufficient data for estimating posterior distributions and comparing Bayesian models if we choose to use this dataset.
 
 # Scientific Questions: 
 
-Our main goal is to study height advantages in NBA draft round in the recent 20 years, in the aim to assist our prediction of rookie player's future draft outcomes. 
+All the basketball players seem to be much higher than the average population, thus, it is reasonable to predict that a higher height would bring advantages in a basketball game. To verify this assumption, we apply Bayesian inference on the NBA players dataset. Our main goal is to study height advantages in NBA draft round in the recent 20 years, in the aim to assist our prediction of rookie player's future draft outcomes. 
 
 
-
-```{r}
+```{r,echo=F}
 recent_10 <- nba[nba$draft_year>=2006 & !(nba$draft_round== "Undrafted"),]
 
 rookie_data <- recent_10 |>
@@ -64,18 +67,18 @@ quantile(rookie_data$player_height,c(0.25,0.5,0.75))
 
 ```
 
-Knowing that the upper quantile is 208.28cm, we wonder whether player that are higher than upper quantile have advantages in draft round. 
+We filtered the data, thus we only have observations from draft year 2006. We would like to keep our data to the recent 20 years to avoid potential demographic changes over time. Note also that players could appear various times in the dataset, so we only included rookie performance which reflects player's initial talent evaluation. We assessed upper and lower quantile of player's height in our cleaned dataset.
+
+Knowing that the upper quantile is 208.28cm, we wonder whether player that are higher than the upper quantile have advantages in draft round. 
 
 Our primary scientific question is:
 
-**What is the probability that a player was drafted in the first round given that their height exceeds 208.28 cm?**
+**Given the NBA dataset, what is the probability that a player was drafted in the first round given that their height exceeds 208.28 cm?**
 
 
+A secondary question we may investigate depends on the lower quantile of player's height:
 
-
-A secondary question we may investigate is:
-
-**What is the probability that a player was drafted in the first round given that their height is below 195.58 cm?**
+**Given the NBA dataset, what is the probability that a player averages more than 20 points per game given their height is below 195.58 cm?**
 
 These questions are well suited to Bayesian methods because they allow us to quantify uncertainty, incorporate prior information, and compare posterior distributions under different model assumptions.
 
@@ -83,9 +86,9 @@ These questions are well suited to Bayesian methods because they allow us to qua
 
 ## Data Analysis
 
-- Perform Exploratory Data Analysis to visualize, clean ,and explore potential relationship between variables.
+- Perform Exploratory Data Analysis to visualize, clean, and explore potential relationship between variables.
 
-- Assign prior and likelihood distribution based on observations, visualizations, or knowledge from prior studies.
+- Assign prior and likelihood distribution based on observations, visualizations, or results from prior studies.
 
 ## Posterior Computation Plan
 
@@ -94,15 +97,15 @@ We plan to use at least two methods for posterior computation:
 1.  SNIS
 2.  MCMC
 
-This will allow us to compare posterior approximations and assess their agreement. We will discuss if the results support one another, and why such agreement or disagreement happens.
+This will allow us to compare posterior approximations and assess their agreement. We will discuss if the results support one another, and why such agreement or disagreement happens. We could also compare different features through using different methods.
 
 ## Model Checking and Validation
 
 We plan to evaluate our Bayesian models using:
 
--   Knowledge from prior research studies
--   Assess credible interval and check if it is approximately calibrated
--   Visualize the posterior distribution
+-   Results from prior research studies
+-   Assess credible interval's calibration
+-   Visualize the posterior distribution and discuss
 
 
 # Team Contribution Plan
@@ -113,13 +116,13 @@ To ensure all team members contribute roughly equally, we plan the following div
 
     Exploratory Data Analysis
     
-    Discussion and Limitations
-    
     Compare the results from the two methods
+    
+    Discussion and Limitations
     
 -   **Jenni Tong:** 
 
-    Constructing Prior and likelihood Distribution
+    Construct Prior and likelihood Distribution
     
     Implement MCMC method
     
@@ -127,10 +130,10 @@ To ensure all team members contribute roughly equally, we plan the following div
     
 -   **Yingming Sha:** 
 
-    Constructing Posterior Distribution
+    Construct Posterior Distribution
     
     Implement SNIS method
     
     Interpret posterior result
 
-All team members will contribute to background introduction, literature review, reference.
+All team members will contribute to background introduction, literature review, reference, and final check.
