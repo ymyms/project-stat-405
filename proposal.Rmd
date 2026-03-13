@@ -1,6 +1,6 @@
 ---
 title: "Project Proposal"
-author: "Jenni \\ Max \\ Yingming Sha 39664552"
+author: "Jenni 23988835\\ Max Yin 12580312\\ Yingming Sha 39664552"
 output: pdf_document
 ---
 
@@ -10,9 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Team Information
 
-**Team members:** [Teammate Name] - [Teammate Name] - Yingming Sha
+**Team members:** Max Yin, Jenni Tong, Yingming Sha
 
-**Public repository:**
+**Public repository:**\
 <https://github.com/ymyms/stat-405-project>
 
 The repository contains commits from all team members and will be used to store data, code and the report.
@@ -53,6 +53,17 @@ Our main goal is to study relationships between physical attributes and basketba
 
 Our primary scientific question is:
 
+```{r}
+recent_10 <- nba[nba$draft_year>=2006 & !(nba$draft_round== "Undrafted"),]
+
+rookie_data <- recent_10 |>
+  dplyr::arrange(player_name, season) |>
+  dplyr::distinct(player_name, .keep_all = TRUE)
+
+quantile(rookie_data$player_height,c(0.25,0.5,0.75))
+
+```
+
 **What is the posterior distribution of the slope parameter describing the relationship between NBA player height and weight?**
 
 Equivalently, we want to estimate the posterior distribution of the slope coefficient in a regression model of player weight on height, as well as the posterior expectation $E[\beta \mid \text{data}]$.
@@ -65,39 +76,56 @@ These questions are well suited to Bayesian methods because they allow us to qua
 
 # Proposed Methodology
 
-## Model 1: ...
+## Model 1: 
 
-...
+- Perform Exploratory Data Analysis to visualize, clean ,and explore potential relationship between variables.
 
-## Model 2: ...
-
-...
+- Assign prior and likelihood distribution based on observations, visualizations, or knowledge from prior studies.
 
 # Posterior Computation Plan
 
 We plan to use at least two methods for posterior computation:
 
-1.  ...
-2.  ...
+1.  SNIS
+2.  MCMC
 
-This will allow us to compare posterior approximations and assess their agreement.
+This will allow us to compare posterior approximations and assess their agreement. We will discuss if the results support one another, and why such agreement or disagreement happens.
 
 # Model Checking and Validation
 
 We plan to evaluate our Bayesian models using:
 
--   ...
--   ...
--   ...
--   ...
--   ...
+-   Knowledege from prior research studies
+-   Check if the credible interval is at least approximatedly calibrated
+-   Visualize the posterior distribution
+
 
 # Team Contribution Plan
 
 To ensure all team members contribute roughly equally, we plan the following division of work:
 
--   **[Teammate Name]:** ...
--   **[Teammate Name]:** ...
--   **Yingming Sha:** ...
+-   **Max Yin:** 
 
-All team members will contribute to ...
+    Exploratory Data Analysis
+    
+    Discussion and Limitations
+    
+    Compare the results from the two methods
+    
+-   **Jenni Tong:** 
+
+    Constructing Prior and likelihood Distribution
+    
+    Implement MCMC method
+    
+    Analyze posterior distribution
+    
+-   **Yingming Sha:** 
+
+    Constructing Posterior Distribution
+    
+    Implement SNIS method
+    
+    Interpret posterior result
+
+All team members will contribute to background intriduction, literature review, reference
