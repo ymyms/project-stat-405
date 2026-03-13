@@ -31,7 +31,7 @@ nba <- read.csv("all_seasons.csv")
 head(nba)
 ```
 
-This dataset is suitable for our project because it includes both player attributes and performance statistics that can be analyzed using Bayesian. In particular, variables such as height and weight allow us to study the relationship between players’ physical characteristics. Since the dataset contains many observations across multiple seasons, it provides enough data to estimate posterior distributions and compare different Bayesian modeling approaches.
+This dataset is suitable for our project because it includes both player attributes and performance statistics that can be analyzed using Bayesian. In particular, variables such as height allow us to study the relationship between players’ physical characteristics. Since the dataset contains many observations across multiple seasons, it provides enough data to estimate posterior distributions and compare different Bayesian modeling approaches.
 
 ## Backup Dataset: Olympic Athletes Dataset
 
@@ -45,9 +45,9 @@ olympic <- read.csv("athlete_events.csv")
 head(olympic)
 ```
 
-This dataset serves as a suitable backup for our project because it also contains physical attributes such as height and weight, along with measurable outcomes such as medal results. These variables allow similar Bayesian analyses to those proposed for the NBA dataset, such as modeling relationships between physical characteristics and athletic performance. In addition, the large number of observations across many years provides sufficient data for estimating posterior distributions and comparing Bayesian models if we choose to use this dataset.
+This dataset serves as a suitable backup for our project because it also contains physical attributes such as height along with measurable outcomes such as medal results. These variables allow similar Bayesian analyses to those proposed for the NBA dataset, such as modeling relationships between physical characteristics and athletic performance. In addition, the large number of observations across many years provides sufficient data for estimating posterior distributions and comparing Bayesian models if we choose to use this dataset.
 
-# Scientific Questions (will be decided after further discussion)
+# Scientific Questions: 
 
 Our main goal is to study height advantages in NBA draft round in the recent 20 years, in the aim to assist our prediction of rookie player's future draft outcomes. 
 
@@ -81,13 +81,13 @@ These questions are well suited to Bayesian methods because they allow us to qua
 
 # Proposed Methodology
 
-## Model 1: 
+## Data Analysis
 
 - Perform Exploratory Data Analysis to visualize, clean ,and explore potential relationship between variables.
 
 - Assign prior and likelihood distribution based on observations, visualizations, or knowledge from prior studies.
 
-# Posterior Computation Plan
+## Posterior Computation Plan
 
 We plan to use at least two methods for posterior computation:
 
@@ -96,12 +96,12 @@ We plan to use at least two methods for posterior computation:
 
 This will allow us to compare posterior approximations and assess their agreement. We will discuss if the results support one another, and why such agreement or disagreement happens.
 
-# Model Checking and Validation
+## Model Checking and Validation
 
 We plan to evaluate our Bayesian models using:
 
--   Knowledege from prior research studies
--   Check if the credible interval is at least approximatedly calibrated
+-   Knowledge from prior research studies
+-   Assess credible interval and check if it is approximately calibrated
 -   Visualize the posterior distribution
 
 
@@ -133,4 +133,4 @@ To ensure all team members contribute roughly equally, we plan the following div
     
     Interpret posterior result
 
-All team members will contribute to background intriduction, literature review, reference
+All team members will contribute to background introduction, literature review, reference.
