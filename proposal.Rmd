@@ -49,9 +49,9 @@ This dataset serves as a suitable backup for our project because it also contain
 
 # Scientific Questions (will be decided after further discussion)
 
-Our main goal is to study relationships between physical attributes and basketball outcomes using Bayesian inference.
+Our main goal is to study height advantages in NBA draft round in the recent 20 years, in the aim to assist our prediction of rookie player's future draft outcomes. 
 
-Our primary scientific question is:
+
 
 ```{r}
 recent_10 <- nba[nba$draft_year>=2006 & !(nba$draft_round== "Undrafted"),]
@@ -64,13 +64,18 @@ quantile(rookie_data$player_height,c(0.25,0.5,0.75))
 
 ```
 
-**What is the posterior distribution of the slope parameter describing the relationship between NBA player height and weight?**
+Knowing that the upper quantile is 208.28cm, we wonder whether player that are higher than upper quantile have advantages in draft round. 
 
-Equivalently, we want to estimate the posterior distribution of the slope coefficient in a regression model of player weight on height, as well as the posterior expectation $E[\beta \mid \text{data}]$.
+Our primary scientific question is:
+
+**What is the probability that a player was drafted in the first round given that their height exceeds 208.28 cm?**
+
+
+
 
 A secondary question we may investigate is:
 
-**How does player height affect the probability that a player averages more than 20 points per game?**
+**What is the probability that a player was drafted in the first round given that their height is below 195.58 cm?**
 
 These questions are well suited to Bayesian methods because they allow us to quantify uncertainty, incorporate prior information, and compare posterior distributions under different model assumptions.
 
