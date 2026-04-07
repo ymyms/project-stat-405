@@ -1,0 +1,161 @@
+---
+title: "Project"
+author: "Jenni"
+date: "2026-04-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE}
+library(distr)
+nba <- read.csv("all_seasons.csv")
+head(nba)
+dim(nba)
+
+recent_10 <- nba[nba$draft_year>=2016 & !(nba$draft_round== "Undrafted"),]
+
+rookie_data <- recent_10 |>
+  dplyr::arrange(player_name, season) |>
+  dplyr::distinct(player_name, .keep_all = TRUE)
+
+head(rookie_data)
+```
+
+
+```{r}
+library(distr)
+###### solution
+
+posterior = function(ppl_function, number_of_iterations) {
+  numerator = 0.0
+  denominator = 0.0
+  for (i in 1:number_of_iterations) {
+    weight <<- 1.0
+    g_i = ppl_function()
+    numerator = numerator + weight * g_i
+    denominator = denominator + weight
+  }
+  return(numerator/denominator)
+}
+
+###### contents of the scaffold
+
+suppressPackageStartupMessages(library(distr))
+
+## Utilities to make the distr library a bit nicer to use
+
+p <- function(distribution, realization) {
+  d(distribution)(realization) # return the PMF or density 
+}
+
+Bern <- function(p) {
+  function(y_vec) {
+    # y_vec: vector of 0/1 observations
+    prod(p^y_vec * (1 - p)^(1 - y_vec))
+  }
+}
+
+## Key functions called by simPPLe programs
+
+# Use simulate(distribution) for unobserved random variables
+simulate <- function(distribution) {
+  r(distribution)(1) # sample once from the given distribution
+}
+
+# Use observe(realization, distribution) for observed random variables
+observe = function(realization, distribution) {
+  # `<<-` lets us modify variables that live in the global scope from inside a function
+  weight <<- weight * p(distribution, realization) 
+}
+
+observe_all <- function(y_vec, p) {
+  weight <<- weight * Bern(p)(y_vec)
+}
+```
+
+```{r}
+tall_threshold <- 200
+
+tall_players  <- rookie_data[rookie_data$player_height >= tall_threshold, ]
+short_players <- rookie_data[rookie_data$player_height <  tall_threshold, ]
+draft_tall  <- ifelse(tall_players$draft_round == 1,1,0)
+draft_short <- ifelse(short_players$draft_round == 1,1,0)
+
+tall_vs_short <- function() {
+  p_tall  <- simulate(Beta(1,1))
+  observe_all(draft_tall,p_tall)
+  
+  p_short <- simulate(Beta(1,1))
+  observe_all(draft_short,p_short)
+  
+  return(ifelse(p_tall > p_short,1,0))
+}
+
+posterior(tall_vs_short,1000)
+```
+
+```{r}
+
+hierarchical_tall_vs_short_draft <- function() {
+  mu <- simulate(Beta(1,1))
+  s  <- simulate(Exp(1/10000))
+  p_tall  <- simulate(Beta(mu*s,(1-mu)*s))
+  p_short <- simulate(Beta(mu*s,(1-mu)*s))
+
+  observe_all(draft_tall,p_tall)
+  
+  observe_all(draft_short, p_short)
+  
+  
+  ifelse(p_tall>p_short,1,0)
+}
+
+posterior(hierarchical_tall_vs_short_draft,1000)
+```
+
+
+```{r,message=F}
+suppressPackageStartupMessages(library(cmdstanr))
+
+data_list <- list(
+  N_tall = length(draft_tall),
+  N_short = length(draft_short),
+  y_tall = draft_tall,
+  y_short = draft_short
+)
+
+mod <- cmdstan_model("short_tall.stan")
+
+fit <- mod$sample(
+  data = data_list,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 5000,
+  refresh = 0
+)
+
+fit
+
+```
+
+
+```{r,message=FALSE}
+mod2 <- cmdstan_model("hierarchical_stan.stan")
+
+fit2 <- mod2$sample(
+  data = data_list,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 5000,
+  refresh = 0
+)
+indicator <- fit2$draws("is_taller_sooner_drafted")
+indicator_vec <- as.vector(indicator)
+
+mean(indicator_vec)
+
+
+```
