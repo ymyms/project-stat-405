@@ -9,8 +9,13 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Background
+
+
+## Data Cleaning
+
 ```{r,echo=FALSE}
-library(distr)
+suppressPackageStartupMessages(library(distr))
 nba <- read.csv("all_seasons.csv")
 head(nba)
 dim(nba)
@@ -24,138 +29,99 @@ rookie_data <- recent_10 |>
 head(rookie_data)
 ```
 
+```{r,message=F,warning=F}
+suppressPackageStartupMessages(require(ggplot2))
+suppressPackageStartupMessages(require(dplyr))
+suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(broom))
 
-```{r}
-library(distr)
-###### solution
-
-posterior = function(ppl_function, number_of_iterations) {
-  numerator = 0.0
-  denominator = 0.0
-  for (i in 1:number_of_iterations) {
-    weight <<- 1.0
-    g_i = ppl_function()
-    numerator = numerator + weight * g_i
-    denominator = denominator + weight
-  }
-  return(numerator/denominator)
-}
-
-###### contents of the scaffold
-
-suppressPackageStartupMessages(library(distr))
-
-## Utilities to make the distr library a bit nicer to use
-
-p <- function(distribution, realization) {
-  d(distribution)(realization) # return the PMF or density 
-}
-
-Bern <- function(p) {
-  function(y_vec) {
-    # y_vec: vector of 0/1 observations
-    prod(p^y_vec * (1 - p)^(1 - y_vec))
-  }
-}
-
-## Key functions called by simPPLe programs
-
-# Use simulate(distribution) for unobserved random variables
-simulate <- function(distribution) {
-  r(distribution)(1) # sample once from the given distribution
-}
-
-# Use observe(realization, distribution) for observed random variables
-observe = function(realization, distribution) {
-  # `<<-` lets us modify variables that live in the global scope from inside a function
-  weight <<- weight * p(distribution, realization) 
-}
-
-observe_all <- function(y_vec, p) {
-  weight <<- weight * Bern(p)(y_vec)
-}
+rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
 
-```{r}
-tall_threshold <- 200
+## EDA
 
-tall_players  <- rookie_data[rookie_data$player_height >= tall_threshold, ]
-short_players <- rookie_data[rookie_data$player_height <  tall_threshold, ]
-draft_tall  <- ifelse(tall_players$draft_round == 1,1,0)
-draft_short <- ifelse(short_players$draft_round == 1,1,0)
-
-tall_vs_short <- function() {
-  p_tall  <- simulate(Beta(1,1))
-  observe_all(draft_tall,p_tall)
-  
-  p_short <- simulate(Beta(1,1))
-  observe_all(draft_short,p_short)
-  
-  return(ifelse(p_tall > p_short,1,0))
-}
-
-posterior(tall_vs_short,1000)
-```
+This is the section for more graphs, observed patterns and interpretations.
 
 ```{r}
+glm(formula = draft_round~player_height,
+       data = rookie_data,
+       family = binomial)%>% 
+    tidy(exponentiate = F)
 
-hierarchical_tall_vs_short_draft <- function() {
-  mu <- simulate(Beta(1,1))
-  s  <- simulate(Exp(1/10000))
-  p_tall  <- simulate(Beta(mu*s,(1-mu)*s))
-  p_short <- simulate(Beta(mu*s,(1-mu)*s))
-
-  observe_all(draft_tall,p_tall)
-  
-  observe_all(draft_short, p_short)
-  
-  
-  ifelse(p_tall>p_short,1,0)
-}
-
-posterior(hierarchical_tall_vs_short_draft,1000)
 ```
 
+In the frequentist interpretation, since the p value for slope is smaller than 0.05 (0.029), and the slope is larger than 0 (0.027), we could conclude that there is a statistically significant positive association between the player's height and draft round. We could like to also verify this idea using the Bayesian approach.
 
-```{r,message=F}
+```{r}
+plot(y=rookie_data$draft_round,x=rookie_data$player_height)
+```
+
+From the scatter plot, we can see that when player's height is below 185cm, it is very unlikely for the player to be drafted in the first round. Howeverm after 185cm, the nuisance becomes less obvious.
+
+
+The model has distribution as following.
+
+$$\textbf{slope} \sim N(0,10)$$
+
+$$\textbf{intercept} \sim N(0,10)$$
+
+$$\theta(\textbf{height})=logistic(\textbf{intercept+height*slope})$$
+
+$$Y \sim Bernoulli(\theta(\textbf{height}))$$
+
+## Model Fitting
+```{r,message=F,warning=F}
 suppressPackageStartupMessages(library(cmdstanr))
+set.seed(405)
 
 data_list <- list(
-  N_tall = length(draft_tall),
-  N_short = length(draft_short),
-  y_tall = draft_tall,
-  y_short = draft_short
+  N = nrow(rookie_data),
+  height = rookie_data$player_height,
+  y = rookie_data$draft_round
 )
 
-mod <- cmdstan_model("short_tall.stan")
+mod <- cmdstan_model("logistic_slope.stan")
 
 fit <- mod$sample(
   data = data_list,
   seed = 1,
-  chains = 2,
+  chains = 4,
   iter_sampling = 5000,
   refresh = 0
 )
 
 fit
 
+cat("Exponentiated value of the slope coefficient is", exp(mean(fit$draws("slope"))),".")
+
 ```
 
+We choose to use 4 chains so we could check whether the chain mixes well later. From the table, we can conclude that the mean of slope is 0.03, and the mean of `slope_positive`, an indicator variable is 0.98.
 
-```{r,message=FALSE}
-mod2 <- cmdstan_model("hierarchical_stan.stan")
+Since $E[1[slope>0]|Y]=P(slope>0|Y)$, this model effectively answered our question, as the probability of interest is substancially larger than 0.5. Thus, we conclude that height has a positive relationship with the chance of being drafted in the first round. Thus, being taller in height means higher probability of drafted earlier.
 
-fit2 <- mod2$sample(
-  data = data_list,
-  seed = 1,
-  chains = 2,
-  iter_sampling = 5000,
-  refresh = 0
+From the table, we can also conclude that a 1 cm increase in height is associated with a 2.6% increase in the odds of a player being drafted in the first round.
+
+We would like to assess the goodness of fit using the following approach.
+
+## MCMC Diagnostics
+
+```{r,warning=F,message=F}
+suppressPackageStartupMessages(library(bayesplot))
+mcmc_trace(fit$draws("slope")) + theme_minimal()
+mcmc_rank_hist(fit$draws("slope")) + 
+  ylab("number of MCMC samples with these ranks") + 
+  theme_minimal()+
+  scale_x_continuous(
+  breaks = c(0, 5000, 10000, 15000, 20000),
+  labels = c("0", "", "10000", "", "20000")
 )
-indicator <- fit2$draws("is_taller_sooner_drafted")
-indicator_vec <- as.vector(indicator)
-
-mean(indicator_vec)
-
-
 ```
+
+Here, we are using `slope` instead of `slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Thus, we use `slope` instead. Since both variables are form the same model, if the plots for `slope` suggests fast mixing, then it means that the model for `slope_positive` mixes fast.
+
+From the trace plot, we can see that they four chains overlap a lot; from the histogram, we can see four approximately uniform histograms. Both plots suggests that our model is fast mixing.
+
+## Goodness of Fit
+this is the section for calibration
+
