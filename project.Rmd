@@ -1,6 +1,6 @@
 ---
 title: "Project"
-author: "Jenni"
+author: "Jenni, Yingming"
 date: "2026-04-06"
 output: pdf_document
 ---
@@ -9,17 +9,76 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Background
+# Background
 
+## Problem Formulation
 
-## Data Cleaning
+The NBA Draft is an annual event where all 30 NBA teams select eligible players
+to join their rosters, serving as the primary pathway for new talent to enter
+the league. The draft consists of two rounds, with each team holding one pick
+per round, for a total of 60 selections. The order in which teams pick is not
+arbitrary: teams that performed worse in the previous season are rewarded with
+earlier picks, giving struggling franchises the opportunity to rebuild through
+high-potential young talent. Specifically, the 14 lowest-ranked teams enter a
+weighted lottery to determine the first 14 picks of the first round, with worse
+records receiving higher odds. The remaining picks in both rounds follow reverse
+standings order --- the worst team picks first, the best team picks last.
 
-```{r,echo=FALSE}
+Prior to the draft, teams evaluate prospects through the NBA Draft Combine,
+private workouts, and scouting reports. Scouts assess a wide range of factors
+including physical measurements, athletic testing, skill level, and projected
+development trajectory. The result is an internal team ranking that ultimately
+determines which player a team selects when their pick arrives.
+
+Pick position carries substantial consequences for a player's career. First-round selections receive fully guaranteed multi-year contracts, whereas second-round picks are not guaranteed and must compete for roster spots with little job security. This distinction makes the first-round versus second-round boundary a meaningful and practically important threshold to study.
+
+Given this context, understanding what physical attributes are associated with
+first-round selection is of both scientific and practical interest. Height, in
+particular, has long been regarded as a fundamental advantage in basketball ---
+taller players are better positioned to score near the basket, contest shots,
+and control the boards. It is therefore natural to ask whether teams
+systematically favour taller players when making first-round selections. Our
+scientific question is:
+
+> **Does player height have a positive effect on the probability of being
+> selected in the first round of the NBA Draft?**
+
+Mathematically, we model this via Bayesian logistic regression, where the
+binary outcome (first round = 1, second round = 0) is regressed on player
+height. The key quantity of interest is the **posterior probability that the
+slope on height is positive**:
+
+$$P(\beta_{\text{height}} > 0 \mid \mathbf{Y})$$
+
+## Team Contributions
+
+**Public repository link:** <https://github.com/ymyms/stat-405-project>
+
+## Literature Review
+
+...
+
+# Data Cleaning
+
+```{r load-packages}
+suppressPackageStartupMessages(require(ggplot2))
+suppressPackageStartupMessages(require(dplyr))
+suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(broom))
 suppressPackageStartupMessages(library(distr))
+```
+
+```{r load-data}
 nba <- read.csv("all_seasons.csv")
 head(nba)
 dim(nba)
+```
+The raw dataset contains 12,844 player-season observations across 22 variables,
+spanning the 1996--97 to 2022--23 NBA seasons. Each row represents one player
+in one season, meaning the same player may appear multiple times across
+different years.
 
+```{r}
 recent_10 <- nba[nba$draft_year>=2016 & !(nba$draft_round== "Undrafted"),]
 
 rookie_data <- recent_10 |>
@@ -27,19 +86,83 @@ rookie_data <- recent_10 |>
   dplyr::distinct(player_name, .keep_all = TRUE)
 
 head(rookie_data)
-```
-
-```{r,message=F,warning=F}
-suppressPackageStartupMessages(require(ggplot2))
-suppressPackageStartupMessages(require(dplyr))
-suppressPackageStartupMessages(require(tidyverse))
-suppressPackageStartupMessages(require(broom))
-
 rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
+Four cleaning steps were applied to prepare the data for modelling. First, we
+restricted the data to players drafted in 2016 or later, retaining only the
+past decade of draft classes. This ensures that our findings reflect the
+preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks
+specifically, undrafted players represent a qualitatively different pathway
+into the league. Third, to avoid the statistical issue of repeated observations
+per player (the same player's height and draft round appearing across multiple
+seasons), we retained only each player's earliest season. This gives
+one observation per unique player, ensuring the independence assumption of
+logistic regression is satisfied. Fourth, the `draft_round` variable was
+recoded as a binary indicator: 1 for first-round selections and 0 for
+second-round selections.
 
-## EDA
+# EDA
+The goal of this section is to examine the distribution of player height and
+its relationship with draft round.
 
+## Distribution of Draft Round
+
+```{r eda-bar, fig.height=3, fig.width=4.5, fig.align='center'}
+ggplot(rookie_data,
+       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) +
+  geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
+  labs(x = "Draft Round", y = "Count",
+       caption = "Player-season observations after cleaning") +
+  theme_minimal()
+```
+## Distribution of Player Height
+
+```{r eda-height-dist, fig.height=3, fig.width=5, fig.align='center'}
+ggplot(rookie_data, aes(x = player_height)) +
+  geom_histogram(binwidth = 2, fill = "#5B8DB8", color = "white", alpha = 0.8) +
+  geom_vline(xintercept = mean(rookie_data$player_height),
+             linetype = "dashed", color = "#E07B54") +
+  annotate("text",
+           x = mean(rookie_data$player_height) + 1.5,
+           y = Inf, vjust = 2,
+           label = paste0("Mean = ",
+                          round(mean(rookie_data$player_height), 1), " cm"),
+           color = "#E07B54", size = 3) +
+  labs(x = "Height (cm)", y = "Count") +
+  theme_minimal()
+```
+## Height by Draft Round
+
+```{r eda-boxplot, fig.height=3.5, fig.width=5, fig.align='center'}
+ggplot(rookie_data,
+       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")),
+           y = player_height,
+           fill = factor(draft_round))) +
+  geom_boxplot(alpha = 0.7, show.legend = FALSE) +
+  scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
+  labs(x = "Draft Round", y = "Height (cm)") +
+  theme_minimal()
+```
+
+```{r eda-height-summary}
+rookie_data %>%
+  group_by(draft_round) %>%
+  summarise(
+    n        = dplyr::n(),
+    mean_ht  = round(mean(player_height), 2),
+    sd_ht    = round(sd(player_height), 2),
+    med_ht   = round(median(player_height), 2)
+  ) %>%
+  mutate(draft_round = ifelse(draft_round == 1,
+                              "1st Round", "2nd Round")) %>%
+  rename(`Draft Round` = draft_round, N = n,
+         Mean = mean_ht, SD = sd_ht, Median = med_ht)
+```
+
+First-round picks are on average taller than second-round picks, though the
+difference is modest and the distributions overlap considerably. The EDA is consistent with a
+positive but uncertain slope in the logistic regression model.
+---
 This is the section for more graphs, observed patterns and interpretations.
 
 ```{r}
