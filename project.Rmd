@@ -66,10 +66,9 @@ The goal of this section is to examine the distribution of player height and its
 
 ```{r eda-bar, fig.height=3, fig.width=4, fig.align='center'}
 ggplot(rookie_data,
-       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) +
-  geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
+       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) + geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
   labs(x = "Draft Round", y = "Count",
-       caption = "Player-season observations after cleaning") +
+       caption = "Player-season observations after cleaning")+
   theme_minimal()
 ```
 ## Distribution of Player Height
@@ -79,14 +78,12 @@ ggplot(rookie_data, aes(x = player_height)) +
   geom_histogram(binwidth = 2, fill = "#5B8DB8", color = "white", alpha = 0.8) +
   geom_vline(xintercept = mean(rookie_data$player_height),
              linetype = "dashed", color = "#E07B54") +
-  annotate("text",
-           x = mean(rookie_data$player_height) + 1.5,
+  annotate("text", x = mean(rookie_data$player_height) + 1.5,
            y = Inf, vjust = 2,
            label = paste0("Mean = ",
-                          round(mean(rookie_data$player_height), 1), " cm"),
+             round(mean(rookie_data$player_height), 1), "cm"),
            color = "#E07B54", size = 3) +
-  labs(x = "Height (cm)", y = "Count") +
-  theme_minimal()
+  labs(x = "Height (cm)", y = "Count") + theme_minimal()
 ```
 ## Height by Draft Round
 
@@ -97,8 +94,7 @@ ggplot(rookie_data,
            fill = factor(draft_round))) +
   geom_boxplot(alpha = 0.7, show.legend = FALSE) +
   scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
-  labs(x = "Draft Round", y = "Height (cm)") +
-  theme_minimal()
+  labs(x = "Draft Round", y = "Height (cm)") + theme_minimal()
 ```
 
 ```{r eda-height-summary}
@@ -121,16 +117,13 @@ difference is modest and the distributions overlap considerably. The EDA is cons
 
 ```{r}
 glm(formula = draft_round~player_height,
-       data = rookie_data,
-       family = binomial)%>% 
-    tidy(exponentiate = F)
-
+       data = rookie_data, family = binomial)%>%  tidy(exponentiate = F)
 ```
 
 In the frequentist interpretation, since the p value for slope is smaller than 0.05 (0.029), and the slope is larger than 0 (0.027), we could conclude that there is a statistically significant positive association between the player's height and draft round. We could like to also verify this idea using the Bayesian approach.
 
 ```{r,fig.width=4,fig.height=3}
-plot(y=rookie_data$draft_round,x=rookie_data$player_height)
+plot(y=rookie_data$draft_round,x=rookie_data$player_height, ylab="Draft round",xlab="Height(cm)")
 ```
 
 From the scatter plot, we can see that when player's height is below 185cm, it is very unlikely for the player to be drafted in the first round. Howeverm after 185cm, the nuisance becomes less obvious.
@@ -159,17 +152,10 @@ fit <- mod$sample(
   iter_sampling = 2000,
   refresh = 0
 )
-fit
+fit$summary(variables = c("intercept", "slope","slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
 cat("Exponentiated value of the slope coefficient is", exp(mean(fit$draws("slope"))),".")
 
 ```
-
-
-
-```{r}
-fit$summary(variables = c("intercept", "slope"), "rhat","ess_bulk", "ess_tail")
-```
-
 The effective sample size is around 500 for both variables.
 
 We choose to use 2 chains so we could check whether the chain mixes well later. From the table, we can conclude that the mean of slope is 0.03, and the mean of `slope_positive`, an indicator variable is 0.98.
@@ -182,16 +168,15 @@ We would like to assess the goodness of fit using the following approach.
 
 ## MCMC Diagnostics
 
-```{r,warning=F,message=F,fig.width=4,fig.height=3}
-par(mfrow = c(1, 2))
-mcmc_trace(fit$draws("slope")) + theme_minimal()
-mcmc_rank_hist(fit$draws("slope")) + 
+```{r,warning=F,message=F,fig.width=6,fig.height=3}
+trace <- mcmc_trace(fit$draws("slope")) + theme_minimal()
+hist <- mcmc_rank_hist(fit$draws("slope")) + 
   ylab("number of MCMC samples with these ranks") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 5000, 10000, 15000, 20000),
-  labels = c("0", "", "10000", "", "20000")
-)
+  labels = c("0", "", "10000", "", "20000"))
+gridExtra::grid.arrange(trace,hist,ncol=2)
 ```
 
 Here, we are using `slope` instead of `slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Thus, we use `slope` instead. Since both variables are form the same model, if the plots for `slope` suggests fast mixing, then it means that the model for `slope_positive` mixes fast.
@@ -219,28 +204,3 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
     title = "Calibration plot") + theme_minimal()
 ```
 We can see that the majority of the probability center around 0.55 to 0.6, which suggests that although there is a positive relationship between height and draft round, the association is relatively weak.
-```{r}
-set.seed(405)
-simulate <- function(N, beta0, beta1) {
-  height <- rnorm(N, 200, 10)
-  p <- plogis(beta0 + beta1 * height)
-  y <- rbinom(N, 1, p)
-  data_list <- list(N=N, height=height, y=y)
-  fit <- mod$sample(
-    data = data_list,
-    chains = 2,
-    iter_sampling = 1000,
-    refresh = 0,
-    show_messages = F
-  )
-  ci <- quantile((fit$draws("slope")),c(0.025, 0.975))
-  return(ci)
-}
-S <- 30; beta0_true <- -1 ; beta1_true <- 0.01
-covered <- numeric(S)
-for (s in 1:S) {
-  ci <- simulate(200, beta0_true, beta1_true)
-  covered[s] <- (beta1_true >= ci[1] & beta1_true <= ci[2])
-}
-mean(covered)
-```
