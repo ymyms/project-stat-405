@@ -179,9 +179,7 @@ hist <- mcmc_rank_hist(fit$draws("slope")) +
 gridExtra::grid.arrange(trace,hist,ncol=2)
 ```
 
-Here, we are using `slope` instead of `slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Thus, we use `slope` instead. Since both variables are form the same model, if the plots for `slope` suggests fast mixing, then it means that the model for `slope_positive` mixes fast.
-
-From the trace plot, we can see that they two chains overlap a lot; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
+Here, we are using `slope` instead of `slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Since both variables are form the same model, if the plots for `slope` suggests fast mixing, then it means that the model for `slope_positive` mixes fast. From the trace plot, we can see that they two chains overlap a lot; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
 
 ## Goodness of Fit
 
@@ -203,4 +201,27 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
   labs(x = "Predicted probability", y = "Observed proportion",
     title = "Calibration plot") + theme_minimal()
 ```
+
 We can see that the majority of the probability center around 0.55 to 0.6, which suggests that although there is a positive relationship between height and draft round, the association is relatively weak.
+
+Now, we would simulate the data and sere if the nominal coverage rate matches with the actual coverage rate. From, EDA, we see that the histogram of player height is approximately normal, centered roughly around 200cm, with a standard deviation around 10cm.
+```{r}
+set.seed(405)
+simulate_data <- function(N,intercept, slope){
+  height <- rnorm(N,200,10)
+  y <- rbinom(N, 1, plogis(intercept+slope*height))
+  data <- list(N=N,height=height,y=y)
+  fit <- mod$sample(
+  data = data, chains = 2, iter_sampling = 1000,
+  refresh = 0,show_messages = F)
+  ci <- quantile(fit$draws("slope"), c(0.1,0.9))
+return(ci)
+}
+iteration = 20; intercept = -1 ; slope = 0.01
+covered <- numeric(iteration)
+for (i in 1:iteration){
+  ci <- simulate_data(200,intercept, slope)
+  covered[i] <- (slope >= ci[1] & slope <= ci[2])
+}
+mean(covered)
+```

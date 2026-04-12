@@ -16,6 +16,5 @@ model {
 }
 
 generated quantities {
-  int slope_positive = slope > 0 ? 1 : 0;  
-  real p_pred = inv_logit(intercept + slope * height[N]);
+  int slope_positive = slope > 0 ? 1 : 0;
 }
