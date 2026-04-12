@@ -60,7 +60,7 @@ $$P(\beta_{\text{height}} > 0 \mid \mathbf{Y})$$
 
 # Data Cleaning
 
-```{r load-packages}
+```{r load-packages, message=F}
 suppressPackageStartupMessages(require(ggplot2))
 suppressPackageStartupMessages(require(dplyr))
 suppressPackageStartupMessages(require(tidyverse))
@@ -70,8 +70,6 @@ suppressPackageStartupMessages(library(distr))
 
 ```{r load-data}
 nba <- read.csv("all_seasons.csv")
-head(nba)
-dim(nba)
 ```
 The raw dataset contains 12,844 player-season observations across 22 variables,
 spanning the 1996--97 to 2022--23 NBA seasons. Each row represents one player
@@ -80,12 +78,9 @@ different years.
 
 ```{r}
 recent_10 <- nba[nba$draft_year>=2016 & !(nba$draft_round== "Undrafted"),]
-
 rookie_data <- recent_10 |>
   dplyr::arrange(player_name, season) |>
   dplyr::distinct(player_name, .keep_all = TRUE)
-
-head(rookie_data)
 rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
 Four cleaning steps were applied to prepare the data for modelling. First, we
@@ -248,3 +243,35 @@ From the trace plot, we can see that they four chains overlap a lot; from the hi
 ## Goodness of Fit
 this is the section for calibration
 
+```{r calibration}
+library(posterior)
+draws_df <- as_draws_df(fit$draws(c("intercept", "slope")))
+
+rookie_data$p_hat <- sapply(
+  1:nrow(rookie_data),
+  function(i) {
+    mean(plogis(draws_df$intercept + draws_df$slope * rookie_data$player_height[i]))
+  }
+)
+
+rookie_data$bin <- ntile(rookie_data$p_hat, 10)
+
+calibration_df <- rookie_data %>%
+  group_by(bin) %>%
+  summarise(
+    mean_pred = mean(p_hat),
+    obs_rate = mean(draft_round)
+  )
+
+ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  coord_equal() +
+  labs(
+    x = "Predicted probability",
+    y = "Observed proportion",
+    title = "Calibration plot"
+  ) +
+  theme_minimal()
+```
