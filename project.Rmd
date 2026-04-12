@@ -246,5 +246,37 @@ Here, we are using `slope` instead of `slope_positive` to check whether the chai
 From the trace plot, we can see that they four chains overlap a lot; from the histogram, we can see four approximately uniform histograms. Both plots suggests that our model is fast mixing.
 
 ## Goodness of Fit
-this is the section for calibration
+
+```{r calibration}
+library(posterior)
+draws_df <- as_draws_df(fit$draws(c("intercept", "slope")))
+
+rookie_data$p_hat <- sapply(
+  1:nrow(rookie_data),
+  function(i) {
+    mean(plogis(draws_df$intercept + draws_df$slope * rookie_data$player_height[i]))
+  }
+)
+
+rookie_data$bin <- ntile(rookie_data$p_hat, 10)
+
+calibration_df <- rookie_data %>%
+  group_by(bin) %>%
+  summarise(
+    mean_pred = mean(p_hat),
+    obs_rate = mean(draft_round)
+  )
+
+ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  coord_equal() +
+  labs(
+    x = "Predicted probability",
+    y = "Observed proportion",
+    title = "Calibration plot"
+  ) +
+  theme_minimal()
+```
 
