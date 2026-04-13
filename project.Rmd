@@ -154,7 +154,7 @@ fit <- mod$sample(
 )
 fit$summary(variables = c("intercept", "slope","slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
 cat("Exponentiated value of the slope coefficient is", exp(mean(fit$draws("slope"))),".")
-
+quantile(fit$draws("slope"), c(0.025,0.975))
 ```
 The effective sample size is around 500 for both variables.
 
@@ -224,4 +224,23 @@ for (i in 1:iteration){
   covered[i] <- (slope >= ci[1] & slope <= ci[2])
 }
 mean(covered)
+```
+
+
+```{r}
+set.seed(405)
+fit.variational = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 1000,
+  data = list(
+            N = nrow(rookie_data),
+            height = rookie_data$player_height,
+            y=rookie_data$draft_round
+          ) , show_messages = F)
+mean(fit.variational$draws()[, "slope"])
+mean(fit.variational$draws()[, "slope_positive"])
+quantile(fit.variational$draws()[, "slope"], c(0.025,0.975))
 ```
