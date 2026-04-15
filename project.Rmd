@@ -1,6 +1,6 @@
 ---
 title: "Project"
-author: "Jenni, Yingming"
+author: "Jenni, Yingming, Max"
 date: "2026-04-06"
 output: pdf_document
 ---
@@ -34,7 +34,13 @@ $$P(\beta_{\text{height}} > 0 \mid \mathbf{Y})$$
 
 ## Literature Review
 
-...
+A growing body of literature examines how NBA teams evaluate talent and make draft decisions, focusing on player performance and observable characteristics. A closely related study is Greer et al. (2019), which uses a logistic regression framework to analyze the determinants of NBA draft selection. The authors find that scoring ability is the most important predictor of whether a player is selected, while other factors such as team success and player characteristics also play a role.
+Complementing this, Cui et al. (2019) analyze NBA Draft Combine data and show that anthropometric characteristics, particularly height and wingspan, are key factors distinguishing drafted from undrafted players. Their findings highlight the importance of physical attributes in talent identification and suggest that taller players have a systematic advantage in draft outcomes.
+
+Despite these contributions, existing studies primarily focus on whether a player is drafted at all, rather than distinguishing between first-round and second-round selection, which represents a meaningful economic threshold due to differences in contract guarantees. Furthermore, most prior research relies on frequentist methods and emphasizes statistical significance rather than probabilistic interpretation. As a result, these approaches do not directly quantify the probability that a specific attribute, such as height, has a positive effect on draft outcomes.
+
+This paper contributes to the literature by focusing on the probability of being selected in the first round and adopting a Bayesian logistic regression framework. This approach allows for direct estimation of the posterior probability that height has a positive effect on draft selection, providing a more intuitive and decision-relevant interpretation. Using a publicly available NBA player dataset from Kaggle, this study offers a complementary perspective on how physical attributes influence draft outcomes.
+
 
 # Data Cleaning
 
@@ -244,3 +250,12 @@ mean(fit.variational$draws()[, "slope"])
 mean(fit.variational$draws()[, "slope_positive"])
 quantile(fit.variational$draws()[, "slope"], c(0.025,0.975))
 ```
+
+# References 
+
+Cirtautas, J. (2023, October 13). NBA players. Kaggle. https://www.kaggle.com/datasets/justinas/nba-players-data/code 
+
+Cui, Y., Liu, F., Bao, D., Liu, H., Zhang, S., & Gómez, M.-Á. (2019). Key anthropometric and physical determinants for different playing positions during National Basketball Association Draft Combine Test. Frontiers in Psychology, 10. https://doi.org/10.3389/fpsyg.2019.02359 
+
+Greer, T., Price, J., & Berri, D. (2019). Jumping in the pool: What determines which players the NBA considers in the draft? International Journal of Sport Finance, 14(1), 44–54. https://doi.org/10.32731/ijsf/141.022019.04 
+
