@@ -9,6 +9,10 @@ data {
   vector<lower=0>[N] ast;
   vector<lower=0,upper=1>[N] oreb_pct;
   
+  real prior_center;
+  real<lower=0>prior_sd;
+  real prior_rate;
+  
 }
 
 parameters {
@@ -25,8 +29,8 @@ parameters {
 }
 
 model {
-  center ~ normal(0,1);
-  spread ~ exponential(1);
+  center ~ normal(prior_center,prior_sd);
+  spread ~ exponential(prior_rate);
   intercept ~ normal(0, 1);
   slope_height ~ normal(center, spread);
   slope_weight ~ normal(center, spread);

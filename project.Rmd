@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 # Background
@@ -146,7 +146,6 @@ glm(formula = draft_round~ age+player_height+player_weight+draft_number+pts+ast+
        data = temporary_data, family = binomial)%>%  tidy(exponentiate = F)
 ```
 
-In the frequentist interpretation, since the p value for slope is smaller than 0.05 (0.029), and the slope is larger than 0 (0.027), we could conclude that there is a statistically significant positive association between the player's height and draft round. We could like to also verify this idea using the Bayesian approach.
 
 ```{r,fig.width=4,fig.height=3}
 plot(y=rookie_data$draft_round,x=rookie_data$player_height, ylab="Draft round",xlab="Height(cm)")
@@ -165,145 +164,171 @@ $$
 
 ## Model Fitting
 
-```{r}
-library(distr)
-
-posterior = function(ppl_function, number_of_iterations) {
-  log_numerator = -Inf
-  log_denominator = -Inf
-  
-  for (i in 1:number_of_iterations) {
-    log_weight <<- 0.0
-    g_i = ppl_function()
-    log_numerator = logsumexp(log_numerator, log_weight + log(g_i))
-    log_denominator = logsumexp(log_denominator , log_weight)
-  }
-  return(exp(log_numerator-log_denominator))
-}
-
-logsumexp <- function(a,b){
-  return(log(exp(a)+exp(b)))
-}
-
-###### contents of the scaffold
-
-suppressPackageStartupMessages(library(distr))
-
-## Utilities to make the distr library a bit nicer to use
-
-p <- function(distribution, realization) {
-  d(distribution)(realization) # return the PMF or density 
-}
-
-Bern <- function(p) {
-  function(y_vec) {
-    # y_vec: vector of 0/1 observations
-    prod(p^y_vec * (1 - p)^(1 - y_vec))
-  }
-}
-
-## Key functions called by simPPLe programs
-
-# Use simulate(distribution) for unobserved random variables
-simulate <- function(distribution) {
-  r(distribution)(1) # sample once from the given distribution
-}
-
-# Use observe(realization, distribution) for observed random variables
-observe = function(realization, distribution) {
-  # `<<-` lets us modify variables that live in the global scope from inside a function
-  weight <<- weight * p(distribution, realization) 
-}
-
-observe_all <- function(y_vector, p_vector) {
-  p_vec <- pmax(pmin(p_vector, 1 - 1e-20), 1e-20)
-  return((sum(dbinom(y_vector,1,p_vector,log=TRUE))))
-}
-
-```
-
-```{r}
-set.seed(405)
-
-hierarchical <- function() {
-  center <- simulate(Norm(0,1))
-  spread  <- simulate(Exp(1))
-  intercept <- simulate(Norm(0,1))
-  slope_height <- simulate(Norm(center,spread))
-  slope_weight <- simulate(Norm(center,spread))
-  slope_pts <- simulate(Norm(center,spread))
-  slope_ast <- simulate(Norm(center,spread))
-  slope_draft <- simulate(Norm(center,spread))
-  slope_age <- simulate(Norm(center,spread))
-  slope_oreb <- simulate(Norm(center,spread))
-  
-  log_likelihood <- observe_all(temporary_data$draft_round,
-              plogis(intercept + 
-                 slope_height * temporary_data$player_height+ 
-                 slope_draft * temporary_data$draft_number + 
-                 slope_age * temporary_data$age+ 
-                 slope_weight * temporary_data$player_weight + 
-                 slope_pts * temporary_data$pts + 
-                 slope_ast * temporary_data$ast + 
-                 slope_oreb * temporary_data$oreb_pct))
-  
-  log_weight <<- log_weight + log_likelihood
-  
-  return(ifelse(slope_height > 0, 1, 0))
-}
-
-posterior(hierarchical,100)
-
-```
 
 ```{r , cache=TRUE}
 data_complicated <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
-  y = rookie_data$draft_round,
+  y = temporary_data$draft_round,
   draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct)
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=1,
+  prior_rate=1)
   
   
-mode <- cmdstan_model("complicated_bernoulli.stan")
-fit <- mode$sample(
+mod <- cmdstan_model("complicated_bernoulli.stan")
+fit <- mod$sample(
   data = data_complicated,
   seed = 1,
   chains = 2,
   iter_sampling = 2000,
   refresh = 0
 )
-fit
+print(fit, max_rows = 12)
 fit$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
 quantile(fit$draws("slope_height"), c(0.025,0.975))
 mean(fit$draws("height_slope_positive"))
 ```
 
+All ess are over 1000 and rhat are close to 1.
 
 
-```{r,message=F,warning=F,eval = FALSE}
-data_list <- list(
-  N = nrow(rookie_data),
-  height = rookie_data$player_height,
-  y = rookie_data$draft_round
-)
-mod <- cmdstan_model("logistic_slope.stan")
-fit <- mod$sample(
-  data = data_list,
+```{r , cache=TRUE}
+data_complicated_2 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=10,
+  prior_rate=10)
+
+fit_2 <- mod$sample(
+  data = data_complicated_2,
   seed = 1,
   chains = 2,
   iter_sampling = 2000,
   refresh = 0
 )
-fit$summary(variables = c("intercept", "slope","slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
-cat("Exponentiated value of the slope coefficient is", exp(mean(fit$draws("slope"))),".")
-quantile(fit$draws("slope"), c(0.025,0.975))
+print(fit_2, max_rows = 12)
+fit_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_2$draws("slope_height"), c(0.025,0.975))
+mean(fit_2$draws("height_slope_positive"))
 ```
-The effective sample size is around 500 for both variables.
+
+```{r , cache=TRUE}
+data_complicated_3 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=10,
+  prior_sd=1,
+  prior_rate=1/10)
+
+fit_3 <- mod$sample(
+  data = data_complicated_3,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+print(fit_3, max_rows = 12)
+fit_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_3$draws("slope_height"), c(0.025,0.975))
+mean(fit_3$draws("height_slope_positive"))
+```
+
+```{r, cache=TRUE}
+fit.variational = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=1,
+  prior_rate=1) , show_messages = F)
+mean(fit.variational$draws()[, "slope_height"])
+mean(fit.variational$draws()[, "height_slope_positive"])
+quantile(fit.variational$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+```{r, cache=TRUE}
+fit.variational_2 = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=10,
+  prior_rate=10) , show_messages = F)
+mean(fit.variational_2$draws()[, "slope_height"])
+mean(fit.variational_2$draws()[, "height_slope_positive"])
+quantile(fit.variational_2$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+
+```{r, cache=TRUE}
+fit.variational_3 = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=10,
+  prior_sd=1,
+  prior_rate=1/10) , show_messages = F)
+mean(fit.variational_3$draws()[, "slope_height"])
+mean(fit.variational_3$draws()[, "height_slope_positive"])
+quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
+```
 
 We choose to use 2 chains so we could check whether the chain mixes well later. From the table, we can conclude that the mean of slope is 0.03, and the mean of `slope_positive`, an indicator variable is 0.98.
 
@@ -326,7 +351,210 @@ hist <- mcmc_rank_hist(fit$draws("slope_height")) +
 gridExtra::grid.arrange(trace,hist,ncol=2)
 ```
 
+
 Here, we are using `slope_height` instead of `height_slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `height_slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Since both variables are form the same model, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes fast. From the trace plot, we can see that they two chains overlap a lot; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
+
+
+
+
+Now we discuss the regular model.
+
+```{r, cache=TRUE}
+data_simple <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  sd_height = 5,
+  sd_weight= 5,
+  sd_pts =3,
+  sd_ast=3,
+  sd_draft=2,
+  sd_age=2,
+  sd_oreb=2)
+  
+  
+mod_simple <- cmdstan_model("logistic_slope.stan")
+fit_simple <- mod_simple$sample(
+  data = data_simple,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+fit_simple
+fit_simple$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_simple$draws("slope_height"), c(0.025,0.975))
+mean(fit_simple$draws("height_slope_positive"))
+
+```
+
+```{r, cache=T}
+data_simple_2 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  sd_height = 1,
+  sd_weight= 1,
+  sd_pts =1,
+  sd_ast=1,
+  sd_draft=1,
+  sd_age=1,
+  sd_oreb=1)
+  
+fit_simple_2 <- mod_simple$sample(
+  data = data_simple_2,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+fit_simple_2
+fit_simple_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_simple_2$draws("slope_height"), c(0.025,0.975))
+mean(fit_simple_2$draws("height_slope_positive"))
+```
+
+```{r, cache=T}
+data_simple_3 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  sd_height = 1,
+  sd_weight= 1,
+  sd_pts =0.5,
+  sd_ast=0.5,
+  sd_draft=0.1,
+  sd_age=0.1,
+  sd_oreb=0.1)
+  
+fit_simple_3 <- mod_simple$sample(
+  data = data_simple_3,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+fit_simple_3
+fit_simple_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_simple_3$draws("slope_height"), c(0.025,0.975))
+mean(fit_simple_3$draws("height_slope_positive"))
+```
+```{r, cache=TRUE}
+simple.variational = mod_simple$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+    sd_height = 2,
+    sd_weight= 2,
+    sd_pts =1.5,
+    sd_ast=1.5,
+    sd_draft=1,
+    sd_age=1,
+    sd_oreb=1) , show_messages = F)
+mean(simple.variational$draws()[, "slope_height"])
+mean(simple.variational$draws()[, "height_slope_positive"])
+quantile(simple.variational$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+```{r, cache=TRUE}
+simple.variational_2 = mod_simple$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+    sd_height = 1,
+    sd_weight= 1,
+    sd_pts =1,
+    sd_ast=1,
+    sd_draft=1,
+    sd_age=1,
+    sd_oreb=1) , show_messages = F)
+mean(simple.variational_2$draws()[, "slope_height"])
+mean(simple.variational_2$draws()[, "height_slope_positive"])
+quantile(simple.variational_2$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+
+
+```{r, cache=TRUE}
+simple.variational_3 = mod_simple$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+    sd_height = 1,
+    sd_weight= 1,
+    sd_pts =0.5,
+    sd_ast=0.5,
+    sd_draft=0.1,
+    sd_age=0.1,
+    sd_oreb=0.1) , show_messages = F)
+mean(simple.variational_3$draws()[, "slope_height"])
+mean(simple.variational_3$draws()[, "height_slope_positive"])
+quantile(simple.variational_3$draws()[, "slope_height"], c(0.025,0.975))
+```
+```{r,warning=F,message=F,fig.width=6,fig.height=3}
+trace <- mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
+hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
+  ylab("number of MCMC samples with these ranks") + 
+  theme_minimal()+
+  scale_x_continuous(
+  breaks = c(0, 500, 1000, 1500, 2000),
+  labels = c("0", "", "1000", "", "2000"))
+gridExtra::grid.arrange(trace,hist,ncol=2)
+```
 
 ## Goodness of Fit
 
@@ -359,110 +587,11 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
     title = "Calibration plot") + theme_minimal()
 ```
 
-```{r,fig.width=4,fig.height=3,eval = FALSE}
-draws_df <- as_draws_df(fit$draws(c("intercept", "slope")))
-rookie_data$p_hat <- sapply(
-  1:nrow(rookie_data),
-  function(i) {
-    mean(plogis(draws_df$intercept + draws_df$slope * rookie_data$player_height[i]))})
-rookie_data$bin <- ntile(rookie_data$p_hat, 5)
-calibration_df <- rookie_data %>%
-  group_by(bin) %>%
-  summarise( mean_pred = mean(p_hat),
-    obs_rate = mean(draft_round))
-ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
-  geom_point() + geom_line() +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
-  coord_cartesian(xlim = c(0.5, 0.65), ylim = c(0.5, 0.65)) + 
-  labs(x = "Predicted probability", y = "Observed proportion",
-    title = "Calibration plot") + theme_minimal()
-```
 
 We can see that the majority of the probability center around 0.55 to 0.6, which suggests that although there is a positive relationship between height and draft round, the association is relatively weak.
 
 Now, we would simulate the data and sere if the nominal coverage rate matches with the actual coverage rate. From, EDA, we see that the histogram of player height is approximately normal, centered roughly around 200cm, with a standard deviation around 10cm.
-```{r,eval = FALSE}
-set.seed(405)
-simulate_data <- function(N,intercept, slope){
-  height <- rnorm(N,200,10)
-  y <- rbinom(N, 1, plogis(intercept+slope*height))
-  data <- list(N=N,height=height,y=y)
-  fit <- mode$sample(
-  data = data, chains = 2, iter_sampling = 1000,
-  refresh = 0,show_messages = F)
-  ci <- quantile(fit$draws("slope_height"), c(0.1,0.9))
-return(ci)
-}
-iteration = 20; intercept = -1 ; slope = 0.01
-covered <- numeric(iteration)
-for (i in 1:iteration){
-  ci <- simulate_data(200,intercept, slope)
-  covered[i] <- (slope >= ci[1] & slope <= ci[2])
-}
-mean(covered)
-```
 
-```{r,eval = FALSE}
-
-simulate_data <- function(N,intercept,slope_height,slope_weight,slope_pts,slope_ast,slope_draft,slope_age,slope_oreb){
-  height <- rnorm(N,200,10)
-  weight <- rnorm(N,100,10)
-  draft_number <- rdunif(N,1,60)
-  age <- rexp(N,1/80)
-  pts <- rexp(N,1/10)
-  ast <- rexp(N,1/5)
-  oreb_pct <- runif(N,0,1)
-  y <- rbinom(N, 1, plogis(intercept+
-  slope_age*age + 
-  slope_height*height+ 
-  slope_weight*weight+ 
-  slope_draft*draft_number+ 
-  slope_pts*pts+ 
-  slope_ast*ast +
-  slope_oreb*oreb_pct))
-  
-  data <- list(N=N,height=height,y=y,player_weight=weight,draft_number=draft_number,age=age,pts=pts,ast=ast,oreb_pct=oreb_pct)
-  fit <- mode$sample(
-  data = data, chains = 2, iter_sampling = 1000,
-  refresh = 0,show_messages = F)
-  ci <- quantile(fit$draws("slope_height"), c(0.1,0.9))
-return(ci)
-}
-
-iteration = 1; intercept = -1 ; slope_height=0.1; slope_weight=-0.1; slope_pts=0.1; slope_ast=0.1; slope_draft=0.1; slope_age=-0.1; slope_oreb=-0.1
-covered <- numeric(iteration)
-for (i in 1:iteration){
-  ci <- simulate_data(200,intercept,slope_height,slope_weight,slope_pts,slope_ast,slope_draft,slope_age,slope_oreb)
-  covered[i] <- (slope_height >= ci[1] & slope_height <= ci[2])
-}
-mean(covered)
-
-
-```
-
-
-
-```{r}
-fit.variational = mode$variational(
-  seed = 1,
-  refresh =  0,
-  output_dir = "stan_out",
-  algorithm = "fullrank",
-  output_samples = 1000,
-  data = list(
-    N = nrow(temporary_data),
-    height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
-    age = temporary_data$age,
-    player_weight = temporary_data$player_weight,
-    pts = temporary_data$pts,
-    ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct) , show_messages = F)
-mean(fit.variational$draws()[, "slope_height"])
-mean(fit.variational$draws()[, "height_slope_positive"])
-quantile(fit.variational$draws()[, "slope_height"], c(0.025,0.975))
-```
 
 # References 
 
