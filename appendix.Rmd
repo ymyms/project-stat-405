@@ -8,24 +8,48 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval=F)
+knitr::opts_chunk$set(eval=F)
 ```
 
-```{r load-packages, echo=FALSE, message=FALSE, warning=FALSE, eval=T}
-library(ggplot2)
+# Stan Code
+
+```{r,eval=T,echo=F,warning=F,message=F}
+suppressPackageStartupMessages(library(cmdstanr))
+
+
+```
+
+```{r,eval=T}
+cmdstan_model("logistic_slope.stan")
+
+```
+
+```{r,eval=T}
+cmdstan_model("complicated_bernoulli.stan")
+
+```
+
+# R Code
+
+```{r load-packages, message=FALSE, warning=FALSE, results='hide'}
+library(ggplot2) 
 library(dplyr)
 library(tidyverse)
 library(broom)
 library(distr)
 library(cmdstanr)
-library(bayesplot)
+library(bayesplot) 
 library(posterior)
 library(leaps)
 ```
 
 ```{r load-data}
 nba <- read.csv("all_seasons.csv")
-recent_20 <- nba[nba$draft_year>=2006 & !(nba$draft_round== "Undrafted")
+```
+
+
+```{r}
+recent_20 <- nba[nba$draft_year>=2006 & !(nba$draft_round== "Undrafted") 
                  & !(nba$draft_number== "Undrafted"),]
 rookie_data <- recent_20 |>
   dplyr::arrange(player_name, season) |>
@@ -33,13 +57,16 @@ rookie_data <- recent_20 |>
 rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
 
-```{r }
+
+```{r eda-bar, fig.height=3, fig.width=4, fig.align='center'}
 barplot <- ggplot(rookie_data,
-       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) + 
-  geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
+       aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) 
++ geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
   labs(x = "Draft Round", y = "Count")+
   theme_minimal()
+```
 
+```{r eda-height-dist, fig.height=3, fig.width=4, fig.align='center'}
 histo <- ggplot(rookie_data, aes(x = player_height)) +
   geom_histogram(binwidth = 2, fill = "#5B8DB8", color = "white", alpha = 0.8) +
   geom_vline(xintercept = mean(rookie_data$player_height),
@@ -50,7 +77,9 @@ histo <- ggplot(rookie_data, aes(x = player_height)) +
              round(mean(rookie_data$player_height), 1), "cm"),
            color = "#E07B54", size = 3) +
   labs(x = "Height (cm)", y = "Count") + theme_minimal()
+```
 
+```{r eda-boxplot, fig.height=3.5, fig.width=4, fig.align='center'}
 boxplot <- ggplot(rookie_data,
        aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")),
            y = player_height,
@@ -58,7 +87,9 @@ boxplot <- ggplot(rookie_data,
   geom_boxplot(alpha = 0.7, show.legend = FALSE) +
   scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
   labs(x = "Draft Round", y = "Height (cm)") + theme_minimal()
+```
 
+```{r,fig.width=4,fig.height=3}
 dot <- ggplot(rookie_data,
        aes(x = player_height,
            y = draft_round,
@@ -67,10 +98,13 @@ dot <- ggplot(rookie_data,
   scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
   labs(x = "Height (cm)", y = "Draft Round") + theme_minimal()
 
+```
+
+```{r  fig.height=4, fig.width=7}
 gridExtra::grid.arrange(barplot,histo,boxplot,dot,ncol=2)
 ```
 
-```{r eda-height-summary}
+```{r eda-height-summary,eval=F}
 rookie_data %>%
   group_by(draft_round) %>%
   summarise(
@@ -85,49 +119,32 @@ rookie_data %>%
          Mean = mean_ht, SD = sd_ht, Median = med_ht)
 ```
 
+
 ```{r}
-temporary_data <- rookie_data[,-c(1,2,3,7,8,22)]
+temporary_data <- rookie_data[,-c(1,2,3,7,8,11,22)]
 
 temporary_data[] <- lapply(temporary_data, as.numeric)
-forward <- regsubsets(draft_round ~ ., 
-                         data = temporary_data , 
-                         nvmax = 16, 
-                         method = "forward")
-
-ss = summary(forward)
-models <- ss$which
-index <- which.max(ss$adjr2)
 ```
 
-```{r,eval=T}
-cmdstan_model("logistic_slope.stan")
 
-```
 
-```{r,eval=T}
-cmdstan_model("complicated_bernoulli.stan")
-
-```
-
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 data_simple <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   sd_height = 3,
   sd_weight= 3,
   sd_pts =2,
   sd_ast=2,
-  sd_draft=1,
   sd_age=1,
-  sd_oreb=1)
+  sd_ts=1)
   
   
 mod_simple <- cmdstan_model("logistic_slope.stan")
@@ -139,31 +156,29 @@ fit_simple <- mod_simple$sample(
   refresh = 0
 )
 fit_simple$summary(variables = c("intercept", "slope_height",
-                                 "height_slope_positive"), "mean","sd",
-                   "rhat","ess_bulk", "ess_tail")
+                                 "height_slope_positive"), "mean","sd", "rhat",
+                   "ess_bulk", "ess_tail")
 quantile(fit_simple$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 data_simple_2 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   sd_height = 1,
   sd_weight= 1,
   sd_pts =1,
   sd_ast=1,
-  sd_draft=1,
   sd_age=1,
-  sd_oreb=1)
+  sd_ts=1)
   
 fit_simple_2 <- mod_simple$sample(
   data = data_simple_2,
@@ -178,25 +193,23 @@ quantile(fit_simple_2$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple_2$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 data_simple_3 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   sd_height = 1,
   sd_weight= 1,
   sd_pts =0.5,
   sd_ast=0.5,
-  sd_draft=0.1,
   sd_age=0.1,
-  sd_oreb=0.1)
+  sd_ts=0.1)
   
 fit_simple_3 <- mod_simple$sample(
   data = data_simple_3,
@@ -206,13 +219,13 @@ fit_simple_3 <- mod_simple$sample(
   refresh = 0
 )
 fit_simple_3$summary(variables = c("intercept", "slope_height",
-                                   "height_slope_positive"), "mean","sd", 
-                     "rhat","ess_bulk", "ess_tail")
+                                   "height_slope_positive"), "mean","sd", "rhat",
+                     "ess_bulk", "ess_tail")
 quantile(fit_simple_3$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple_3$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 simple.variational = mod_simple$variational(
   seed = 1,
@@ -223,26 +236,24 @@ simple.variational = mod_simple$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
     sd_height = 3,
     sd_weight= 3,
     sd_pts =2,
     sd_ast=2,
-    sd_draft=1,
     sd_age=1,
-    sd_oreb=1) , show_messages = F)
+    sd_ts=1) , show_messages = F)
 mean(simple.variational$draws()[, "slope_height"])
 mean(simple.variational$draws()[, "height_slope_positive"])
 quantile(simple.variational$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 simple.variational_2 = mod_simple$variational(
   seed = 1,
@@ -253,26 +264,24 @@ simple.variational_2 = mod_simple$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
     sd_height = 1,
     sd_weight= 1,
     sd_pts =1,
     sd_ast=1,
-    sd_draft=1,
     sd_age=1,
-    sd_oreb=1) , show_messages = F)
+    sd_ts=1) , show_messages = F)
 mean(simple.variational_2$draws()[, "slope_height"])
 mean(simple.variational_2$draws()[, "height_slope_positive"])
 quantile(simple.variational_2$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 simple.variational_3 = mod_simple$variational(
   seed = 1,
@@ -283,37 +292,35 @@ simple.variational_3 = mod_simple$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
     sd_height = 1,
     sd_weight= 1,
     sd_pts =0.5,
     sd_ast=0.5,
-    sd_draft=0.1,
     sd_age=0.1,
-    sd_oreb=0.1) , show_messages = F)
+    sd_ts=0.1) , show_messages = F)
 mean(simple.variational_3$draws()[, "slope_height"])
 mean(simple.variational_3$draws()[, "height_slope_positive"])
 quantile(simple.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+
+```{r, cache=TRUE,warning=F}
 set.seed(405)
 data_complicated <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   prior_center=0,
   prior_sd=1,
   prior_rate=1)
@@ -334,18 +341,18 @@ quantile(fit$draws("slope_height"), c(0.025,0.975))
 mean(fit$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 data_complicated_2 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   prior_center=0,
   prior_sd=10,
   prior_rate=10)
@@ -358,24 +365,23 @@ fit_2 <- mod$sample(
   refresh = 0
 )
 print(fit_2, max_rows = 12)
-fit_2$summary(variables = c("intercept", "slope_height","height_slope_positive"),
+fit_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), 
               "mean","sd", "rhat","ess_bulk", "ess_tail")
 quantile(fit_2$draws("slope_height"), c(0.025,0.975))
 mean(fit_2$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F}
 set.seed(405)
 data_complicated_3 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
   y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
   age = temporary_data$age,
   player_weight = temporary_data$player_weight,
   pts = temporary_data$pts,
   ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
+  ts_pct = temporary_data$ts_pct,
   prior_center=10,
   prior_sd=1,
   prior_rate=1/10)
@@ -388,13 +394,13 @@ fit_3 <- mod$sample(
   refresh = 0
 )
 print(fit_3, max_rows = 12)
-fit_3$summary(variables = c("intercept", "slope_height","height_slope_positive"),
+fit_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), 
               "mean","sd", "rhat","ess_bulk", "ess_tail")
 quantile(fit_3$draws("slope_height"), c(0.025,0.975))
 mean(fit_3$draws("height_slope_positive"))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 fit.variational = mod$variational(
   seed = 1,
@@ -405,13 +411,12 @@ fit.variational = mod$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
   prior_center=0,
   prior_sd=1,
   prior_rate=1) , show_messages = F)
@@ -420,7 +425,7 @@ mean(fit.variational$draws()[, "height_slope_positive"])
 quantile(fit.variational$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 fit.variational_2 = mod$variational(
   seed = 1,
@@ -431,13 +436,12 @@ fit.variational_2 = mod$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
   prior_center=0,
   prior_sd=10,
   prior_rate=10) , show_messages = F)
@@ -446,7 +450,8 @@ mean(fit.variational_2$draws()[, "height_slope_positive"])
 quantile(fit.variational_2$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+
+```{r, cache=TRUE,warning=F,message=F}
 set.seed(405)
 fit.variational_3 = mod$variational(
   seed = 1,
@@ -457,13 +462,12 @@ fit.variational_3 = mod$variational(
   data = list(
     N = nrow(temporary_data),
     height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
+    y = temporary_data$draft_round,
     age = temporary_data$age,
     player_weight = temporary_data$player_weight,
     pts = temporary_data$pts,
     ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
+    ts_pct = temporary_data$ts_pct,
   prior_center=10,
   prior_sd=1,
   prior_rate=1/10) , show_messages = F)
@@ -472,7 +476,7 @@ mean(fit.variational_3$draws()[, "height_slope_positive"])
 quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, eval=F}
+```{r, fig.height=1.5,fig.width=5.5}
 trace <- mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
 hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
   ylab("Count") + 
@@ -480,10 +484,11 @@ hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) +
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
   labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2,top = "HMC Diagnostics: Trace Plot and Histogram for regular model")
+gridExtra::grid.arrange(trace,hist,ncol=2,
+             top = "HMC Diagnostics: Trace Plot and Histogram for regular model")
 ```
 
-```{r,eval=F}
+```{r,warning=F,message=F,fig.width=5.5,fig.height=1.5}
 trace <- mcmc_trace(fit$draws("slope_height")) + theme_minimal()
 hist <- mcmc_rank_hist(fit$draws("slope_height")) + 
   ylab("Count") + 
@@ -491,11 +496,16 @@ hist <- mcmc_rank_hist(fit$draws("slope_height")) +
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
   labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2,top = "HMC Diagnostics: Trace Plot and Histogram for Hierarchical Model")
+gridExtra::grid.arrange(trace,hist,ncol=2,
+      top = "HMC Diagnostics: Trace Plot and Histogram for Hierarchical Model")
 ```
 
-```{r,eval=F}
-draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height", "slope_weight","slope_pts","slope_ast","slope_draft","slope_age", "slope_oreb")))
+
+
+```{r,fig.width=4,fig.height=3, cache=TRUE,warning=F,message=F}
+draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height",
+                                    "slope_weight","slope_pts","slope_ast",
+                                    "slope_age", "slope_ts")))
 
 temporary_data$p_hat <- sapply(
   1:nrow(temporary_data),
@@ -506,13 +516,12 @@ temporary_data$p_hat <- sapply(
       draws_df$slope_weight * temporary_data$player_weight[i] +
       draws_df$slope_pts * temporary_data$pts[i] +
       draws_df$slope_ast * temporary_data$ast[i] +
-      draws_df$slope_draft * temporary_data$draft_number[i] +
       draws_df$slope_age * temporary_data$age[i] +
-      draws_df$slope_oreb * temporary_data$oreb_pct[i]))})
+      draws_df$slope_ts * temporary_data$ts_pct[i]))})
 
-temporary_data$bin <- ntile(temporary_data$p_hat, 5)
+temporary_data$bin_2 <- ntile(temporary_data$p_hat, 5)
 calibration_df <- temporary_data %>%
-  group_by(bin) %>%
+  group_by(bin_2) %>%
   summarise( mean_pred = mean(p_hat),
     obs_rate = mean(draft_round))
 ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
@@ -521,9 +530,4 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
   coord_cartesian() + 
   labs(x = "Predicted probability", y = "Observed proportion",
     title = "Calibration plot") + theme_minimal()
-```
-
-```{r eval=F}
-simple.variational$cmdstan_diagnose()
-fit.variational$cmdstan_diagnose()
 ```
