@@ -25,7 +25,7 @@ Mathematically, we model this via Bayesian logistic regression, where the binary
 
 ## Team Contributions
 
-Jenni (40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, and data cleaning. Yasmine (30%) is primarily responsible with the dataset and goddness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning, model selection, discussion and limitation. Max (30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison. We all contributed significant amount of time and effort in the project.
+Jenni (40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, and data cleaning. Yasmine (30%) is primarily responsible with the dataset and goodness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning, model selection, discussion and limitation. Max (30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison. We all contributed significant amount of time and effort in the project.
 
 **Public repository link:** <https://github.com/ymyms/stat-405-project>
 
@@ -156,7 +156,10 @@ temporary_data <- rookie_data[,-c(1,2,3,7,8,11,22)]
 temporary_data[] <- lapply(temporary_data, as.numeric)
 ```
 
-For the regression model, we will keep the six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct`.
+
+For the regression model, we will keep the six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct` (age, height, weight, points per game, assists per game, and true shooting percentage). These covariates were chosen because they reflect both players’ physical characteristics and on-court performance, which are both important parts of draft evaluation. Height and weight represent body size and physical profile. Age is included because younger players are often considered to have greater development potential. Points and assists summarize offensive production and playmaking ability. True shooting percentage is included as a measure of scoring efficiency. Together, these variables form a simple and reasonable set of predictors for first-round draft selection, while keeping height as the main variable of interest.
+
+Although height is the main variable of interest in this project, a model with height alone would be too simple, and might neglect underlying relationships. We therefore include these additional covariates to account for other player characteristics that may also affect first-round selection, while keeping height as the primary coefficient of interest.
 
 # Bayesian Model
 
