@@ -30,6 +30,8 @@ $$P(\beta_{\text{height}} > 0 \mid \mathbf{Y})$$
 
 ## Team Contributions
 
+Jenni(40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, data cleaning, and model selection. Yasmine(30%) is primarily responsible with the dataset and goddness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning and table interpretation. Max(30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison. We all contributed significant amount of time and effort in the project.
+
 **Public repository link:** <https://github.com/ymyms/stat-405-project>
 
 ## Literature Review
@@ -39,14 +41,32 @@ Complementing this, Cui et al. (2019) analyze NBA Draft Combine data and show th
 
 Despite these contributions, existing studies primarily focus on whether a player is drafted at all, rather than distinguishing between first-round and second-round selection, which represents a meaningful economic threshold due to differences in contract guarantees. Furthermore, most prior research relies on frequentist methods and emphasizes statistical significance rather than probabilistic interpretation. As a result, these approaches do not directly quantify the probability that a specific attribute, such as height, has a positive effect on draft outcomes.
 
-This paper contributes to the literature by focusing on the probability of being selected in the first round and adopting a Bayesian logistic regression framework. This approach allows for direct estimation of the posterior probability that height has a positive effect on draft selection, providing a more intuitive and decision-relevant interpretation. Using a publicly available NBA player dataset from Kaggle, this study offers a complementary perspective on how physical attributes influence draft outcomes.
+This paper contributes to the literature by focusing on the probability of being selected in the first round and adopting a Bayesian logistic regression framework. This approach allows for direct estimation of the posterior probability that height has a positive effect on draft selection, providing a more intuitive and decision-relevant interpretation. Using a publicly available NBA player dataset from [Kaggle](https://www.kaggle.com/datasets/justinas/nba-players-data), this study offers a complementary perspective on how physical attributes influence draft outcomes.
 
+## Variable Introduction
 
-# Data Cleaning
+The primary variables which might associate with draft round are
+
+* Age
+* Player Height (cm)
+* Player Weight (kg)
+* Draft year
+* The number at which the player was picked in his draft round
+* Games played throughout the season
+* Average number of points scored
+* Average number of assists distributed
+* Percentage of available offensive rebounds the player grabbed while he was on the floor
+
+# Explorative Data Analysis
+
+The goal of this section is to examine the distribution of player height and its relationship with draft round.
+
+## Data Cleaning
 
 ```{r load-packages, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 library(ggplot2) ; library(dplyr) ; library(tidyverse) ; library(broom)
 library(distr); library(cmdstanr) ; library(bayesplot) ; library(posterior)
+library(leaps)
 ```
 
 ```{r load-data}
@@ -61,26 +81,19 @@ rookie_data <- recent_20 |>
   dplyr::distinct(player_name, .keep_all = TRUE)
 rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
-Four cleaning steps were applied to prepare the data for modelling. First, we restricted the data to players drafted in 2006 or later, retaining only the past decade of draft classes. This ensures that our findings reflect the preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks
-specifically, undrafted players represent a qualitatively different pathway
-into the league. Third, to avoid the statistical issue of repeated observations per player (the same player's height and draft round appearing across multiple seasons), we retained only each player's earliest season. This gives one observation per unique player, ensuring the independence assumption of logistic regression is satisfied. Fourth, the `draft_round` variable was recoded as a binary indicator: 1 for first-round selections and 0 for second-round selections.
+Four cleaning steps were applied to prepare the data for modelling. First, we restricted the data to players drafted in 2006 or later, retaining only the past two decades of draft classes. This ensures that our findings reflect the preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks. Specifically, undrafted players represent a qualitatively different pathway into the league. Third, to avoid the statistical issue of repeated observations per player (the same player's height and draft round appearing across multiple seasons), we retained only each player's earliest season. This gives one observation per unique player, ensuring the independence assumption of logistic regression. Fourth, the `draft_round` variable was recoded as a binary indicator: 1 for first-round selections and 0 for second-round selections.
 
-# EDA
-The goal of this section is to examine the distribution of player height and its relationship with draft round.
-
-## Distribution of Draft Round
+## Distribution of Draft Round and Height
 
 ```{r eda-bar, fig.height=3, fig.width=4, fig.align='center'}
-ggplot(rookie_data,
+barplot <- ggplot(rookie_data,
        aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")))) + geom_bar(fill = c("#E07B54", "#5B8DB8"), width = 0.5) +
-  labs(x = "Draft Round", y = "Count",
-       caption = "Player-season observations after cleaning")+
+  labs(x = "Draft Round", y = "Count")+
   theme_minimal()
 ```
-## Distribution of Player Height
 
 ```{r eda-height-dist, fig.height=3, fig.width=4, fig.align='center'}
-ggplot(rookie_data, aes(x = player_height)) +
+histo <- ggplot(rookie_data, aes(x = player_height)) +
   geom_histogram(binwidth = 2, fill = "#5B8DB8", color = "white", alpha = 0.8) +
   geom_vline(xintercept = mean(rookie_data$player_height),
              linetype = "dashed", color = "#E07B54") +
@@ -91,16 +104,30 @@ ggplot(rookie_data, aes(x = player_height)) +
            color = "#E07B54", size = 3) +
   labs(x = "Height (cm)", y = "Count") + theme_minimal()
 ```
-## Height by Draft Round
 
 ```{r eda-boxplot, fig.height=3.5, fig.width=4, fig.align='center'}
-ggplot(rookie_data,
+boxplot <- ggplot(rookie_data,
        aes(x = factor(draft_round, labels = c("2nd Round", "1st Round")),
            y = player_height,
            fill = factor(draft_round))) +
   geom_boxplot(alpha = 0.7, show.legend = FALSE) +
   scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
   labs(x = "Draft Round", y = "Height (cm)") + theme_minimal()
+```
+
+```{r,fig.width=4,fig.height=3}
+dot <- ggplot(rookie_data,
+       aes(x = player_height,
+           y = draft_round,
+           col = factor(draft_round))) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_fill_manual(values = c("#E07B54", "#5B8DB8")) +
+  labs(x = "Height (cm)", y = "Draft Round") + theme_minimal()
+
+```
+
+```{r  fig.height=4, fig.width=7}
+gridExtra::grid.arrange(barplot,histo,boxplot,dot,ncol=2)
 ```
 
 ```{r eda-height-summary}
@@ -118,11 +145,15 @@ rookie_data %>%
          Mean = mean_ht, SD = sd_ht, Median = med_ht)
 ```
 
-First-round picks are on average taller than second-round picks, though the
-difference is modest and the distributions overlap considerably. The EDA is consistent with a positive but uncertain slope in the logistic regression model.
+From the dot plot, we can see that when player's height is below 180cm, it is very unlikely for the player to be drafted in the first round. After 180cm, the nuisance becomes less obvious. From the boxplot, we can see that the first-round picks are on average taller than second-round picks, though the difference is modest and the distributions overlap considerably. The EDA is consistent with the prior findings by Cui et al, that anthropometric characteristics play a key role in drafts. 
+
+## Regression Model Selection
+
+In order to select the optimal logistic regression model, we performed a forward selection method using adjusted $R^2$. The logistic model intentionally excluded player name, team, college, and other variables which have too many levels that may introduce too many linear dependencies.
+
+The model with the maximized adjusted $R^2$ contains seven covariates, which are `age`, `player_height`, `player_weight`, `draft_number`, `pts`, `ast`, and `oreb_pct`.
 
 ```{r}
-library(leaps)
 temporary_data <- rookie_data[,-c(1,2,3,7,8,22)]
 
 temporary_data[] <- lapply(temporary_data, as.numeric)
@@ -132,234 +163,53 @@ forward <- regsubsets(draft_round ~ .,
                          method = "forward")
 
 ss = summary(forward)
-ss$which
-which.max(ss$adjr2)
+models <- ss$which
+index <- which.max(ss$adjr2)
 ```
 
+# Bayesian Model
 
-The preditors that are chosen using forward selection and maximum R squared are age,player_height,player_weight,draft_number, pts, ast, and oreb_pct.
+We would like to propose two models- a regular model and a hierarchical model. We would use two methods to compute the posterior: Hamiltonian Monte Carlo and Variational Inference. HMC using stan is very fast and efficient, and VI works well for our large dataset with 909 observaions. We would compare and contrast between the methods for each model.
 
-Introduce too many linear dependencies and would introduce far more than 19 predictors after dummy encoding.
-
-```{r}
-glm(formula = draft_round~ age+player_height+player_weight+draft_number+pts+ast+oreb_pct,
-       data = temporary_data, family = binomial)%>%  tidy(exponentiate = F)
-```
-
-
-```{r,fig.width=4,fig.height=3}
-plot(y=rookie_data$draft_round,x=rookie_data$player_height, ylab="Draft round",xlab="Height(cm)")
-```
-
-From the scatter plot, we can see that when player's height is below 185cm, it is very unlikely for the player to be drafted in the first round. Howeverm after 185cm, the nuisance becomes less obvious.
+## Regular Bayesian Model
 
 The model has distribution as following.
+$$\text{intercept} \sim N(0, 1)$$
+$$\beta_i \sim N(0, \sigma_i)$$
 
-$$
-\text{slope} \sim N(0, 10) \\
-\text{intercept} \sim N(0, 10) \\
-\theta(\text{height}) = \text{logistic}(\text{intercept} + \text{height} \cdot \text{slope}) \\
-Y \sim \text{Bernoulli}(\theta(\text{height}))
-$$
+$$\theta = \text{intercept} + \text{height} \cdot \beta_{\text{height}}+ \text{weight} \cdot \beta_{\text{weight}}+ \text{pts} \cdot \beta_{\text{pts}}+ \text{ast} \cdot \beta_{\text{ast}}+ \text{draft number} \cdot \beta_{\text{draft number}} + \text{age} \cdot \beta_{\text{age}} + \text{pct oreb} \cdot \beta_{\text{pct oreb}}$$
 
-## Model Fitting
+$$Y \sim \text{Bernoulli}(\textbf{logistic}(\theta))$$
 
 
-```{r , cache=TRUE}
-data_complicated <- list(
-  N = nrow(temporary_data),
-  height = temporary_data$player_height,
-  y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
-  age = temporary_data$age,
-  player_weight = temporary_data$player_weight,
-  pts = temporary_data$pts,
-  ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
-  prior_center=0,
-  prior_sd=1,
-  prior_rate=1)
-  
-  
-mod <- cmdstan_model("complicated_bernoulli.stan")
-fit <- mod$sample(
-  data = data_complicated,
-  seed = 1,
-  chains = 2,
-  iter_sampling = 2000,
-  refresh = 0
-)
-print(fit, max_rows = 12)
-fit$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
-quantile(fit$draws("slope_height"), c(0.025,0.975))
-mean(fit$draws("height_slope_positive"))
-```
+For this model, $\sigma_i$ is assigned different value, for sake of sensitivity analysis. We used three different choices of priors of standard deviation for comparison.
 
-All ess are over 1000 and rhat are close to 1.
+- For $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=3,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=2,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct oreb}}=1$, we are assuming that the anthropometric characters are the most variant.
+- For all $\sigma_i=1$, we are assuming that the all coefficients have the same standrd normal distribution.
+- For $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=1,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=0.5,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct oreb}}=0.1$, we are assuming that the coefficients are not as variant as suggested in the first prior suggestion.
 
+Our result is as follows, computed using HMC method:
 
-```{r , cache=TRUE}
-data_complicated_2 <- list(
-  N = nrow(temporary_data),
-  height = temporary_data$player_height,
-  y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
-  age = temporary_data$age,
-  player_weight = temporary_data$player_weight,
-  pts = temporary_data$pts,
-  ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
-  prior_center=0,
-  prior_sd=10,
-  prior_rate=10)
+|  | $E[\beta_{height}|Y]$ | $P[\beta_{height}>0|Y]$ | 95% CI for $\beta_{height}$ |
+|----------|----------|----------|----------|
+| Prior Choice 1 | 0.149 | 1.000 | [0.105, 0.192] |
+| Prior Choice 2 | 0.142 | 1.000 | [0.102, 0.182] |
+| Prior Choice 3 | 0.099 | 1.000 | [0.071, 0.129] |
 
-fit_2 <- mod$sample(
-  data = data_complicated_2,
-  seed = 1,
-  chains = 2,
-  iter_sampling = 2000,
-  refresh = 0
-)
-print(fit_2, max_rows = 12)
-fit_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
-quantile(fit_2$draws("slope_height"), c(0.025,0.975))
-mean(fit_2$draws("height_slope_positive"))
-```
+Our result for variational inference is:
 
-```{r , cache=TRUE}
-data_complicated_3 <- list(
-  N = nrow(temporary_data),
-  height = temporary_data$player_height,
-  y = temporary_data$draft_round,
-  draft_number = temporary_data$draft_number,
-  age = temporary_data$age,
-  player_weight = temporary_data$player_weight,
-  pts = temporary_data$pts,
-  ast = temporary_data$ast,
-  oreb_pct = temporary_data$oreb_pct,
-  prior_center=10,
-  prior_sd=1,
-  prior_rate=1/10)
+|  | $E[\beta_{height}|Y]$ | $P[\beta_{height}>0|Y]$ | 95% CI for $\beta_{height}$ |
+|----------|----------|----------|----------|
+| Prior Choice 1 | 0.253 | 0.993 | [0.051, 0.456 ] |
+| Prior Choice 2 | 0.251 | 0.993 | [0.052, 0.450] |
+| Prior Choice 3 | 0.131 | 1.000 | [0.0618, 0.200] |
 
-fit_3 <- mod$sample(
-  data = data_complicated_3,
-  seed = 1,
-  chains = 2,
-  iter_sampling = 2000,
-  refresh = 0
-)
-print(fit_3, max_rows = 12)
-fit_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
-quantile(fit_3$draws("slope_height"), c(0.025,0.975))
-mean(fit_3$draws("height_slope_positive"))
-```
+From the two tables, we can conclude thay for VI, the posterior means for $\beta_{height}$ are larger than that computed by HMC, but the posterior probabilities of $\beta_{height}>0$ are usually smaller than HMC's. However, the credible interval for VI are wider, indicating more uncertainty compared to HMC.
 
-```{r, cache=TRUE}
-fit.variational = mod$variational(
-  seed = 1,
-  refresh =  0,
-  output_dir = "stan_out",
-  algorithm = "fullrank",
-  output_samples = 2000,
-  data = list(
-    N = nrow(temporary_data),
-    height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
-    age = temporary_data$age,
-    player_weight = temporary_data$player_weight,
-    pts = temporary_data$pts,
-    ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
-  prior_center=0,
-  prior_sd=1,
-  prior_rate=1) , show_messages = F)
-mean(fit.variational$draws()[, "slope_height"])
-mean(fit.variational$draws()[, "height_slope_positive"])
-quantile(fit.variational$draws()[, "slope_height"], c(0.025,0.975))
-```
+For both methods, changing the prior, we can see that the output do vary. When standard deviation is assumed smaller, $E[\beta_{height}|Y]$ tend to be smaller. It seems like both methods are somewhat sensitive to the choice of prior. However, one thing they both agree on is that $P[\beta_{height}>0|Y]$ usually round to 1, meaning that the slope is almost always positive. The 95% credible interval $\beta_{height}$ does not contain 0, which supported with this conlcusion. Therefore, for our research interest, both methods are sufficient and efficient. 
 
-```{r, cache=TRUE}
-fit.variational_2 = mod$variational(
-  seed = 1,
-  refresh =  0,
-  output_dir = "stan_out",
-  algorithm = "fullrank",
-  output_samples = 2000,
-  data = list(
-    N = nrow(temporary_data),
-    height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
-    age = temporary_data$age,
-    player_weight = temporary_data$player_weight,
-    pts = temporary_data$pts,
-    ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
-  prior_center=0,
-  prior_sd=10,
-  prior_rate=10) , show_messages = F)
-mean(fit.variational_2$draws()[, "slope_height"])
-mean(fit.variational_2$draws()[, "height_slope_positive"])
-quantile(fit.variational_2$draws()[, "slope_height"], c(0.025,0.975))
-```
-
-
-```{r, cache=TRUE}
-fit.variational_3 = mod$variational(
-  seed = 1,
-  refresh =  0,
-  output_dir = "stan_out",
-  algorithm = "fullrank",
-  output_samples = 2000,
-  data = list(
-    N = nrow(temporary_data),
-    height = temporary_data$player_height,
-    y = rookie_data$draft_round,
-    draft_number = temporary_data$draft_number,
-    age = temporary_data$age,
-    player_weight = temporary_data$player_weight,
-    pts = temporary_data$pts,
-    ast = temporary_data$ast,
-    oreb_pct = temporary_data$oreb_pct,
-  prior_center=10,
-  prior_sd=1,
-  prior_rate=1/10) , show_messages = F)
-mean(fit.variational_3$draws()[, "slope_height"])
-mean(fit.variational_3$draws()[, "height_slope_positive"])
-quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
-```
-
-We choose to use 2 chains so we could check whether the chain mixes well later. From the table, we can conclude that the mean of slope is 0.03, and the mean of `slope_positive`, an indicator variable is 0.98.
-
-Since $E[1[slope>0]|Y]=P(slope>0|Y)$, this model effectively answered our question, as the probability of interest is substancially larger than 0.5. Thus, we conclude that height has a positive relationship with the chance of being drafted in the first round. Thus, being taller in height means higher probability of drafted earlier.
-
-From the table, we can also conclude that a 1 cm increase in height is associated with a 2.6% increase in the odds of a player being drafted in the first round.
-
-We would like to assess the goodness of fit using the following approach.
-
-## MCMC Diagnostics
-
-```{r,warning=F,message=F,fig.width=6,fig.height=3}
-trace <- mcmc_trace(fit$draws("slope_height")) + theme_minimal()
-hist <- mcmc_rank_hist(fit$draws("slope_height")) + 
-  ylab("number of MCMC samples with these ranks") + 
-  theme_minimal()+
-  scale_x_continuous(
-  breaks = c(0, 500, 1000, 1500, 2000),
-  labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2)
-```
-
-
-Here, we are using `slope_height` instead of `height_slope_positive` to check whether the chain mixes well. this is because that `slope` is a continuous variable , but `height_slope_positive` is binary. Thus, fitting the trace plots and histograms on this binary variable will most likely generate some vertical lines, which becomes harder to interpret. Since both variables are form the same model, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes fast. From the trace plot, we can see that they two chains overlap a lot; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
-
-
-
-
-Now we discuss the regular model.
-
-```{r, cache=TRUE}
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 data_simple <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
@@ -370,13 +220,13 @@ data_simple <- list(
   pts = temporary_data$pts,
   ast = temporary_data$ast,
   oreb_pct = temporary_data$oreb_pct,
-  sd_height = 5,
-  sd_weight= 5,
-  sd_pts =3,
-  sd_ast=3,
-  sd_draft=2,
-  sd_age=2,
-  sd_oreb=2)
+  sd_height = 3,
+  sd_weight= 3,
+  sd_pts =2,
+  sd_ast=2,
+  sd_draft=1,
+  sd_age=1,
+  sd_oreb=1)
   
   
 mod_simple <- cmdstan_model("logistic_slope.stan")
@@ -387,14 +237,13 @@ fit_simple <- mod_simple$sample(
   iter_sampling = 2000,
   refresh = 0
 )
-fit_simple
 fit_simple$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
 quantile(fit_simple$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple$draws("height_slope_positive"))
-
 ```
 
-```{r, cache=T}
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 data_simple_2 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
@@ -420,13 +269,13 @@ fit_simple_2 <- mod_simple$sample(
   iter_sampling = 2000,
   refresh = 0
 )
-fit_simple_2
-fit_simple_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+fit_simple_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean")
 quantile(fit_simple_2$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple_2$draws("height_slope_positive"))
 ```
 
-```{r, cache=T}
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 data_simple_3 <- list(
   N = nrow(temporary_data),
   height = temporary_data$player_height,
@@ -452,12 +301,13 @@ fit_simple_3 <- mod_simple$sample(
   iter_sampling = 2000,
   refresh = 0
 )
-fit_simple_3
 fit_simple_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
 quantile(fit_simple_3$draws("slope_height"), c(0.025,0.975))
 mean(fit_simple_3$draws("height_slope_positive"))
 ```
-```{r, cache=TRUE}
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 simple.variational = mod_simple$variational(
   seed = 1,
   refresh =  0,
@@ -474,10 +324,10 @@ simple.variational = mod_simple$variational(
     pts = temporary_data$pts,
     ast = temporary_data$ast,
     oreb_pct = temporary_data$oreb_pct,
-    sd_height = 2,
-    sd_weight= 2,
-    sd_pts =1.5,
-    sd_ast=1.5,
+    sd_height = 3,
+    sd_weight= 3,
+    sd_pts =2,
+    sd_ast=2,
     sd_draft=1,
     sd_age=1,
     sd_oreb=1) , show_messages = F)
@@ -486,7 +336,8 @@ mean(simple.variational$draws()[, "height_slope_positive"])
 quantile(simple.variational$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, cache=TRUE}
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 simple.variational_2 = mod_simple$variational(
   seed = 1,
   refresh =  0,
@@ -517,7 +368,8 @@ quantile(simple.variational_2$draws()[, "slope_height"], c(0.025,0.975))
 
 
 
-```{r, cache=TRUE}
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
 simple.variational_3 = mod_simple$variational(
   seed = 1,
   refresh =  0,
@@ -545,20 +397,251 @@ mean(simple.variational_3$draws()[, "slope_height"])
 mean(simple.variational_3$draws()[, "height_slope_positive"])
 quantile(simple.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
-```{r,warning=F,message=F,fig.width=6,fig.height=3}
+
+## Hierarchical model
+
+This hierarchical model differ from the regular ones, wher individuals might be in specific groups. For sake of this project, we use hierarchical model, assuming that coefficients for different parameters might have the same distribution.
+
+The model has distribution as following.
+$$\text{intercept} \sim N(0, 1)$$
+$$\text{center} \sim N(\mu,\sigma)$$
+
+$$\text{spread} \sim Exp(\lambda)$$
+
+$$\beta_i \sim N(\text{center}, \text{spread})$$
+
+$$\theta = \text{intercept} + \text{height} \cdot \beta_{\text{height}}+ \text{weight} \cdot \beta_{\text{weight}}+ \text{pts} \cdot \beta_{\text{pts}}+ \text{ast} \cdot \beta_{\text{ast}}+ \text{draft number} \cdot \beta_{\text{draft number}} + \text{age} \cdot \beta_{\text{age}} + \text{pct oreb} \cdot \beta_{\text{pct oreb}}$$
+
+$$Y \sim \text{Bernoulli}(\textbf{logistic}(\theta))$$
+
+
+For this model, $\mu$, $\sigma$, $\lambda$ are parameters we can change for sake of sensitivity analysis. 
+
+- For $\mu=0, \sigma=1, \lambda=1$, we are assuming less variant center, and moderate spread.
+- For $\mu=0, \sigma=10, \lambda=10$, we are assuming variant center, and small and concentrated spread.
+- For $\mu=10, \sigma=1, \lambda=1/10$, we are assuming less variant but larger center, and laregr and variant spread.
+
+Our result is as follows, computed using HMC method:
+
+|  | $E[\beta_{height}|Y]$ | $P[\beta_{height}>0|Y]$ | 95% CI for $\beta_{height}$ |
+|----------|----------|----------|----------|
+| Prior Choice 1 | 0.138 | 1.000 | [0.098, 0.182] |
+| Prior Choice 2 | 0.134 | 1.000 | [0.094, 0.178] |
+| Prior Choice 3 | 0.152 | 1.000 | [0.108, 0.199] |
+
+Our result for variational inference is:
+
+|  | $E[\beta_{height}|Y]$ | $P[\beta_{height}>0|Y]$ | 95% CI for $\beta_{height}$ |
+|----------|----------|----------|----------|
+| Prior Choice 1 |  0.248 | 0.993 | [0.061,0.444] |
+| Prior Choice 2 | 0.244 | 0.992 | [0.055, 0.436] |
+| Prior Choice 3 | 0.256 | 0.993 | [0.056,0.460] |
+
+For this model too, VI has larger posterior means for $\beta_{height}$ and smaller posterior probabilities of $\beta_{height}>0$ than HMC's.
+
+For both methods, changing the prior varies output, but only by a little. It seems like both methods are less sensitive to the choice of prior. However, one thing they both agree on is that $P[\beta_{height}>0|Y]$ usually round to 1, meaning that the slope is almost always positive. The 95% credible interval for $\beta_{height}$ does not contain 0, which supported with this conlcusion.
+
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+data_complicated <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=1,
+  prior_rate=1)
+  
+  
+mod <- cmdstan_model("complicated_bernoulli.stan")
+fit <- mod$sample(
+  data = data_complicated,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+print(fit, max_rows = 12)
+fit$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit$draws("slope_height"), c(0.025,0.975))
+mean(fit$draws("height_slope_positive"))
+```
+
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+data_complicated_2 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=10,
+  prior_rate=10)
+
+fit_2 <- mod$sample(
+  data = data_complicated_2,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+print(fit_2, max_rows = 12)
+fit_2$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_2$draws("slope_height"), c(0.025,0.975))
+mean(fit_2$draws("height_slope_positive"))
+```
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+data_complicated_3 <- list(
+  N = nrow(temporary_data),
+  height = temporary_data$player_height,
+  y = temporary_data$draft_round,
+  draft_number = temporary_data$draft_number,
+  age = temporary_data$age,
+  player_weight = temporary_data$player_weight,
+  pts = temporary_data$pts,
+  ast = temporary_data$ast,
+  oreb_pct = temporary_data$oreb_pct,
+  prior_center=10,
+  prior_sd=1,
+  prior_rate=1/10)
+
+fit_3 <- mod$sample(
+  data = data_complicated_3,
+  seed = 1,
+  chains = 2,
+  iter_sampling = 2000,
+  refresh = 0
+)
+print(fit_3, max_rows = 12)
+fit_3$summary(variables = c("intercept", "slope_height","height_slope_positive"), "mean","sd", "rhat","ess_bulk", "ess_tail")
+quantile(fit_3$draws("slope_height"), c(0.025,0.975))
+mean(fit_3$draws("height_slope_positive"))
+```
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+fit.variational = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=1,
+  prior_rate=1) , show_messages = F)
+mean(fit.variational$draws()[, "slope_height"])
+mean(fit.variational$draws()[, "height_slope_positive"])
+quantile(fit.variational$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+fit.variational_2 = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=0,
+  prior_sd=10,
+  prior_rate=10) , show_messages = F)
+mean(fit.variational_2$draws()[, "slope_height"])
+mean(fit.variational_2$draws()[, "height_slope_positive"])
+quantile(fit.variational_2$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+
+```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
+set.seed(405)
+fit.variational_3 = mod$variational(
+  seed = 1,
+  refresh =  0,
+  output_dir = "stan_out",
+  algorithm = "fullrank",
+  output_samples = 2000,
+  data = list(
+    N = nrow(temporary_data),
+    height = temporary_data$player_height,
+    y = rookie_data$draft_round,
+    draft_number = temporary_data$draft_number,
+    age = temporary_data$age,
+    player_weight = temporary_data$player_weight,
+    pts = temporary_data$pts,
+    ast = temporary_data$ast,
+    oreb_pct = temporary_data$oreb_pct,
+  prior_center=10,
+  prior_sd=1,
+  prior_rate=1/10) , show_messages = F)
+mean(fit.variational_3$draws()[, "slope_height"])
+mean(fit.variational_3$draws()[, "height_slope_positive"])
+quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
+```
+
+
+# MCMC Diagnostics
+
+## Mixing
+```{r, fig.height=1.5,fig.width=5.5, cache=TRUE,warning=F,message=F,echo=F}
 trace <- mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
 hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
-  ylab("number of MCMC samples with these ranks") + 
+  ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
   labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2)
+gridExtra::grid.arrange(trace,hist,ncol=2,top = "HMC Diagnostics: Trace Plot and Histogram for regular model")
 ```
+
+```{r,warning=F,message=F,fig.width=5.5,fig.height=1.5}
+trace <- mcmc_trace(fit$draws("slope_height")) + theme_minimal()
+hist <- mcmc_rank_hist(fit$draws("slope_height")) + 
+  ylab("Count") + 
+  theme_minimal()+
+  scale_x_continuous(
+  breaks = c(0, 500, 1000, 1500, 2000),
+  labels = c("0", "", "1000", "", "2000"))
+gridExtra::grid.arrange(trace,hist,ncol=2,top = "HMC Diagnostics: Trace Plot and Histogram for Hierarchical Model")
+```
+
+We choose to use 2 chains so we could check whether the chain mixes well. Here, we are using chains for `slope_height` to check whether the chain mixes well. `height_slope_positive` is binary, which could be assessed, but would show less chain movements than continuous models. Ensuring that both variables are form the same model and method, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes fast. From both trace plots, we can see that the two chains overlap a lot, showing a carterpillar shape; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
 
 ## Goodness of Fit
 
-```{r,fig.width=4,fig.height=3}
+```{r,fig.width=4,fig.height=3, cache=TRUE,warning=F,message=F,echo=F}
 draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height", "slope_weight","slope_pts","slope_ast","slope_draft","slope_age", "slope_oreb")))
 
 temporary_data$p_hat <- sapply(
@@ -574,9 +657,9 @@ temporary_data$p_hat <- sapply(
       draws_df$slope_age * temporary_data$age[i] +
       draws_df$slope_oreb * temporary_data$oreb_pct[i]))})
 
-temporary_data$bin <- ntile(temporary_data$p_hat, 5)
+temporary_data$bin_2 <- ntile(temporary_data$p_hat, 5)
 calibration_df <- temporary_data %>%
-  group_by(bin) %>%
+  group_by(bin_2) %>%
   summarise( mean_pred = mean(p_hat),
     obs_rate = mean(draft_round))
 ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
@@ -587,11 +670,11 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
     title = "Calibration plot") + theme_minimal()
 ```
 
+For this calibration plot, we can see that the our actual coverage align closely with nominal coverage, which suggests that our model is well-specified, so calibration holds.
 
-We can see that the majority of the probability center around 0.55 to 0.6, which suggests that although there is a positive relationship between height and draft round, the association is relatively weak.
+## Validity of VI
 
-Now, we would simulate the data and sere if the nominal coverage rate matches with the actual coverage rate. From, EDA, we see that the histogram of player height is approximately normal, centered roughly around 200cm, with a standard deviation around 10cm.
-
+CmdStan diagnose suggests that VI for both models have $\bar R$'s close to 1 and effective sample sizes satisfactory for all parameters. This suggests that VI provide stable posterior result. One thing to note is that this diagnose does not check the quality of VI itself. But evaluating the comparison between HMC and VI, we see that they agree, so VI is likely well-specified.
 
 # References 
 
