@@ -476,36 +476,30 @@ mean(fit.variational_3$draws()[, "height_slope_positive"])
 quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-```{r, fig.height=1.5,fig.width=5.5}
-trace <- mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
-hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
+
+```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
+mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
+mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
   labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2,
-             top = "HMC Diagnostics: Trace Plot and Histogram for regular model")
 ```
 
-```{r,warning=F,message=F,fig.width=5.5,fig.height=1.5}
-trace <- mcmc_trace(fit$draws("slope_height")) + theme_minimal()
-hist <- mcmc_rank_hist(fit$draws("slope_height")) + 
+```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
+mcmc_trace(fit$draws("slope_height")) + theme_minimal()
+mcmc_rank_hist(fit$draws("slope_height")) + 
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
   labels = c("0", "", "1000", "", "2000"))
-gridExtra::grid.arrange(trace,hist,ncol=2,
-      top = "HMC Diagnostics: Trace Plot and Histogram for Hierarchical Model")
 ```
-
 
 
 ```{r,fig.width=4,fig.height=3, cache=TRUE,warning=F,message=F}
-draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height",
-                                    "slope_weight","slope_pts","slope_ast",
-                                    "slope_age", "slope_ts")))
+draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height", "slope_weight","slope_pts","slope_ast","slope_age", "slope_ts")))
 
 temporary_data$p_hat <- sapply(
   1:nrow(temporary_data),
@@ -519,15 +513,62 @@ temporary_data$p_hat <- sapply(
       draws_df$slope_age * temporary_data$age[i] +
       draws_df$slope_ts * temporary_data$ts_pct[i]))})
 
-temporary_data$bin_2 <- ntile(temporary_data$p_hat, 5)
+temporary_data$bin <- ntile(temporary_data$p_hat, 5)
 calibration_df <- temporary_data %>%
-  group_by(bin_2) %>%
+  group_by(bin) %>%
   summarise( mean_pred = mean(p_hat),
     obs_rate = mean(draft_round))
-ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
+ calplot <- ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
   geom_point() + geom_line() +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   coord_cartesian() + 
   labs(x = "Predicted probability", y = "Observed proportion",
-    title = "Calibration plot") + theme_minimal()
+    title = "Calibration plot (Hierarchical Model)") + theme_minimal()+
+  theme(axis.title = element_text(size = 14),plot.title = element_text(size = 16))
+```
+
+
+```{r,eval=F}
+
+draws_df2 <- as_draws_df(fit_simple$draws(c("intercept", "slope_height",
+                                            "slope_weight","slope_pts", 
+                                            "slope_ast", "slope_age", "slope_ts")
+))
+S <- nrow(draws_df2)
+N <- nrow(temporary_data)
+eta <- matrix(0, S, N)
+for (s in 1:S) {
+  eta[s, ] <-
+    draws_df2$intercept[s] +
+    draws_df2$slope_height[s] * temporary_data$player_height +
+    draws_df2$slope_weight[s] * temporary_data$player_weight +
+    draws_df2$slope_pts[s] * temporary_data$pts +
+    draws_df2$slope_ast[s] * temporary_data$ast +
+    draws_df2$slope_age[s] * temporary_data$age +
+    draws_df2$slope_ts[s] * temporary_data$ts_pct
+}
+
+temporary_data$p_hat_2 <- colMeans(plogis(eta))
+calibration_df_2 <- temporary_data %>%
+  mutate(bin_2 = ntile(p_hat_2, 10)) %>% group_by(bin_2) %>% summarise(
+    mean_pred_2 = mean(p_hat_2),
+    obs_rate_2 = mean(draft_round),
+    n = dplyr::n(),
+    .groups = "drop")
+
+cal_plot <- ggplot(calibration_df_2, aes(x = mean_pred_2, y = obs_rate_2)) +
+  geom_point() + geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  coord_cartesian() + 
+  labs(x = "Predicted probability", y = "Observed proportion",
+    title = "Calibration plot (Regular Model)") + theme_minimal()+
+  theme(axis.title = element_text(size = 14),plot.title = element_text(size = 16))
+
+ggsave(
+  filename = "calibration_plot.png", plot = cal_plot,dpi = 300,height=5)
+```
+
+```{r, fig.show="hold", out.width="50%"}
+knitr::include_graphics("/Users/tongzj/Downloads/project-stat-405/calibration_plot.png")
+plot(calplot)
 ```
