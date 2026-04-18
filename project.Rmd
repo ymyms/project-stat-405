@@ -1,6 +1,6 @@
 ---
-title: "Project"
-author: "Jenni, Yingming, Max"
+title: "Project Stat 405"
+author: "Jenni Tong 23988835, Yingming Sha 39664552, Max Yin 12580312"
 date: "2026-04-06"
 output: pdf_document
 ---
@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Abstract
 
-In this project, we examine the relationship between NBA player's height and their draft outcome. The National Basketball Association draft plays a crucial role in shaping players’ professional careers, making it important to understand which factors influence selection. Thus, we use a Bayesian frame work to model this relationship. Specifically, we compare two approaches: a standard Bayesian model and a hierarchical model that accounts for additional structure in the data. To estimate the models, we apply both Hamiltonian Monte Carlo and Variational Inference, allowing us to assess the robustness of our results across different inference methods. Our findings indicate that the posterior probability of a positive effect of height on better draft outcome is high, suggesting that taller players are more likely to be selected earlier, holding other variables constant.
+In this project, we examine the relationship between NBA player's height and their draft outcome. The National Basketball Association draft plays a crucial role in shaping players’ professional careers, making it important to understand which factors influence selection. Thus, we use a Bayesian frame work to assess this relationship. Specifically, we compare two approaches: a naive Bayesian model and a Hierarchical model that accounts for additional structure in the data. To estimate the models, we apply both Hamiltonian Monte Carlo and Variational Inference, allowing us to assess the robustness of our results across different inference methods. Our findings indicate that the posterior probability of a positive effect of height on better draft outcome is high, suggesting that taller players are more likely to be selected earlier, holding other variables constant.
 
 ## Background Discussion
 
@@ -29,9 +29,9 @@ Mathematically, we model this via Bayesian logistic regression, where the binary
 
 ### Team Contributions
 
-Jenni (40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, and data cleaning. Yasmine (30%) is primarily responsible with the dataset and goodness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning, model selection, discussion and limitation. Max (30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison. We all contributed significant amount of time and effort in the project.
+Jenni (40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, outcome interpretation and data cleaning. Yingming (30%) is primarily responsible with the dataset and goodness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning, model selection, discussion and limitation. Max (30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison.
 
-**Public repository link:** <https://github.com/ymyms/stat-405-project>
+**Public repository link:** <https://github.com/ymyms/project-stat-405>
 
 ### Literature Review
 
@@ -81,7 +81,7 @@ rookie_data <- recent_20 |>
   dplyr::distinct(player_name, .keep_all = TRUE)
 rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
-Four cleaning steps were applied to prepare the data for modelling. First, we restricted the data to players drafted in 2006 or later, retaining only the past two decades of draft classes. This ensures that our findings reflect the preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks. Specifically, undrafted players represent a qualitatively different pathway into the league. Third, to avoid the statistical issue of repeated observations per player (the same player's height and draft round appearing across multiple seasons), we retained only each player's earliest season. This gives one observation per unique player, ensuring the independence assumption of logistic regression. Fourth, the `draft_round` variable was recoded as a binary indicator: 1 for first-round selections and 0 for second-round selections.
+Four cleaning steps were applied to prepare the data for modelling. First, we restricted the data to players drafted in 2006 or later, retaining only the past two decades of draft classes. This ensures that our findings reflect the preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks. Specifically, undrafted players represent a qualitatively different pathway into the league. Third, to avoid the statistical issue of repeated observations per player (the same player's height and draft round appearing across multiple seasons), we retained only each player's earliest season. This gives one observation per unique player, ensuring the independence assumption of logistic regression, while also enabling the evaluation of player's initial talent. Fourth, the `draft_round` variable was recoded as a binary indicator: 1 for first-round selections and 0 for second-round selections.
 
 ### Distribution of Draft Round and Height
 
@@ -145,12 +145,12 @@ rookie_data %>%
          Mean = mean_ht, SD = sd_ht, Median = med_ht)
 ```
 
-|  Draft Round | N | Mean |  SD |  Median  |
+|  Draft Round | N | Height Mean | Height Median  |  Height SD |
 |----------|----------|----------|----------|----------|
-| 1st Round | 512 | 201.18 | 8.16 |200.66|
-| 2nd Round | 397| 199.96 | 8.63 |200.66|
+| 1st Round | 512 | 201.18 |200.66| 8.16 |
+| 2nd Round | 397| 199.96 |200.66| 8.63 |
 
-From the dot plot, we can see that when player's height is below 180cm, it is very unlikely for the player to be drafted in the first round. After 180cm, the nuisance becomes less obvious. From the boxplot and table, we can see that the first-round picks are on average taller than second-round picks, though the difference is modest and the distributions overlap considerably. The EDA is consistent with the prior findings by Cui et al, that anthropometric characteristics play a key role in drafts. 
+From the dot plot, we can see that when player's height is below 180cm, it is very unlikely for the player to be drafted in the first round. Above 180cm, the nuisance becomes less obvious. From the boxplot and table, we can see that the first-round picks are on average taller than second-round picks, though the difference is modest and the distributions overlap considerably. The EDA is consistent with the prior findings by Cui et al, that anthropometric characteristics play a key role in drafts. 
 
 ### Regression Model Selection
 
@@ -160,18 +160,18 @@ temporary_data <- rookie_data[,-c(1,2,3,7,8,11,22)]
 temporary_data[] <- lapply(temporary_data, as.numeric)
 ```
 
+Although height is the main variable of interest in this project, a model with height alone would be too simple, and might neglect underlying relationships while also having confounding and potential bias. We therefore include some additional covariates to account for other player characteristics that may also affect first-round selection, while keeping height as the primary coefficient of interest.
 
-For the regression model, to avoid confounding and potential bias, we would select six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct` (age, height, weight, points per game, assists per game, and true shooting percentage). These covariates were chosen because they reflect both players’ physical characteristics and on-court performance, which are both important parts of draft evaluation. Height and weight represent body size and physical profile. Age is included because younger players are often considered to have greater development potential. Points and assists summarize offensive production and playmaking ability. True shooting percentage is included as a measure of scoring efficiency. Together, these variables form a simple and reasonable set of predictors for first-round draft selection, while keeping height as the main variable of interest.
+Thus, for the regression model, we would select six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct` (age, height, weight, points per game, assists per game, and true shooting percentage). These covariates were chosen because they reflect both players’ physical characteristics and on-court performance, which are both important parts of draft evaluation. Height and weight represent body size and physical profile. Age is included because younger players are often considered to have greater development potential. Points and assists summarize offensive production and playmaking ability. True shooting percentage is included as a measure of scoring efficiency. Together, these variables form a simple and reasonable set of predictors for first-round draft selection, while keeping height as the main variable of interest.
 
-Although height is the main variable of interest in this project, a model with height alone would be too simple, and might neglect underlying relationships. We therefore include these additional covariates to account for other player characteristics that may also affect first-round selection, while keeping height as the primary coefficient of interest.
 
 ## Bayesian Models
 
-We would like to propose two models- a regular model and a hierarchical model. We would use two methods to compute the posterior: Hamiltonian Monte Carlo and Variational Inference. HMC using stan is very fast and efficient, and VI works well for our large dataset with 909 observaions. We would compare and contrast between the methods for each model.
+We would like to propose two models- a naive model and a Hierarchical model. We would use two methods to compute the posterior: Hamiltonian Monte Carlo and Variational Inference. HMC using stan is very fast and efficient, and VI works well for our large dataset with 909 observaions. We would compare and contrast between the methods for each model.
 
-### Regular Bayesian Model and Output
+### Naive Bayesian Model and Output
 
-A regular model is suggested, where we assume that the coefficients for different covariates are from the same family of distributions, but still differ in terms of hyper-parameters. This gives the model more freedom. The model has notations as following.
+A naive model is suggested, where we assume that the coefficients for different covariates are from the same family of distributions, but still differ in terms of hyper-parameters. This gives the model more freedom. We also assume that the intercept and slopes could be both negative and positive, using normal distribution.  Draft round has Bernoulli distribution. The model has notations as following.
 
 $$\text{intercept} \sim N(0, 1)$$
 $$\beta_i \sim N(0, \sigma_i)$$
@@ -183,9 +183,9 @@ $$Y \sim \text{Bernoulli}(\textbf{logistic}(\theta))$$
 
 For this model, $\sigma_i$ is assigned different value, for sake of sensitivity analysis. We used three different choices of priors of standard deviation for comparison.
 
-- For $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=3,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=2,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct ts}}=1$, we are assuming that the anthropometric characters are the most variant.
-- For all $\sigma_i=1$, we are assuming that the all coefficients have the same standrd normal distribution.
-- For $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=1,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=0.5,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct ts}}=0.1$, we are assuming that the coefficients are not as variant as suggested in the first prior suggestion.
+- Choice 1: for $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=3,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=2,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct ts}}=1$, we are assuming that the anthropometric characters are the most variant.
+- Choice 2: for all $\sigma_i=1$, we are assuming that the all coefficients have the same standrd normal distribution.
+- Choice 3: for $\sigma_{\textbf{height}}=\sigma_{\textbf{height}}=1,\sigma_{\textbf{pts}}=\sigma_{\textbf{ast}}=0.5,\sigma_{\textbf{draft number}}=\sigma_{\textbf{age}}=\sigma_{\textbf{pct ts}}=0.1$, we are assuming that the coefficients are not as variant as suggested in the first prior suggestion.
 
 Our result is as follows, computed using HMC method:
 
@@ -203,7 +203,7 @@ Our result for variational inference is:
 | Prior Choice 2 | 0.076 | 0.970 | [-0.002, 0.154] |
 | Prior Choice 3 | 0.057 | 0.981| [0.004, 0.111] |
 
-From the two tables, we can conclude thay for VI, the posterior means for $\beta_{height}$ are larger than that computed by HMC, but the posterior probabilities of $\beta_{height}>0$ are usually smaller than HMC's. However, the credible interval for VI are wider, indicating more uncertainty compared to HMC.
+From the two tables, we can conclude that for VI, the posterior means for $\beta_{height}$ are larger than that computed by HMC, but the posterior probabilities of $\beta_{height}>0$ are usually smaller than HMC's. However, the credible interval for VI are wider, indicating more uncertainty compared to HMC.
 
 For both methods, changing the prior, we can see that the output do vary. When standard deviation is assumed smaller, $E[\beta_{height}|Y]$ tend to be smaller. It seems like both methods are somewhat sensitive to the choice of prior. However, one thing they both agree on is that $P[\beta_{height}>0|Y]$ usually round to 1, meaning that the slope is almost always positive. The 95% credible interval $\beta_{height}$ does not contain 0 for HMC, and sometimes contain 0 for VI.
 
@@ -387,7 +387,7 @@ quantile(simple.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 
 ### Hierarchical Model and Output
 
-This hierarchical model differ from the classical Hierarchical models, where individuals in different groups are studied. For sake of this project, we use hierarchical model, assuming that coefficients for different covariates are from the same distribution. Specifically, we are suggesting that all covariates might have similar effects on draft rounds.
+This Hierarchical model differ from the classical Hierarchical models, where individuals in different groups are studied. For sake of this project, we use Hierarchical model, assuming that coefficients for different covariates are from the same distribution with the same hyper-parameters. We also assume that the intercept, slopes, and center could be both negative and positive with normal distribution, and the spread is strictly non-negative with exponential distribution. Draft round has Bernoulli distribution. Specifically, we are suggesting that all covariates might have similar effects on draft rounds.
 
 The model has notations as following.
 
@@ -405,9 +405,9 @@ $$Y \sim \text{Bernoulli}(\textbf{logistic}(\theta))$$
 
 For this model, $\mu$, $\sigma$, $\lambda$ are parameters we can change for sake of sensitivity analysis. 
 
-- For $\mu=0, \sigma=1, \lambda=1$, we are assuming less variant center, and moderate spread.
-- For $\mu=0, \sigma=10, \lambda=10$, we are assuming variant center, and small and concentrated spread.
-- For $\mu=10, \sigma=1, \lambda=1/10$, we are assuming less variant but larger center, and larger and variant spread.
+- Choice 1: for $\mu=0, \sigma=1, \lambda=1$, we are assuming less variant center, and moderate spread.
+- Choice 2: for $\mu=0, \sigma=10, \lambda=10$, we are assuming variant center, and small and concentrated spread.
+- Choice 3: for $\mu=10, \sigma=1, \lambda=1/10$, we are assuming less variant but larger center, and larger and variant spread.
 
 Our result is as follows, computed using HMC method:
 
@@ -427,7 +427,9 @@ Our result for variational inference is:
 
 For this model too, VI has larger posterior means for $\beta_{height}$ and smaller posterior probabilities of $\beta_{height}>0$ than HMC's.
 
-For both methods, changing the prior varies output, but only by a little. It seems like both methods are less sensitive to the choice of prior. However, one thing they both agree on is that $P[\beta_{height}>0|Y]$ usually round to 1, meaning that the slope is almost always positive. The HMC 95% credible interval for $\beta_{height}$ does not contain 0.
+For both methods, changing the prior varies output, but only by a little. It seems like both methods are less sensitive to the choice of prior. However, one thing they both agree on is that $P[\beta_{height}>0|Y]$ usually round to 1, meaning that the slope is almost always positive. The HMC 95% credible intervals for $\beta_{height}$ does not contain 0.
+
+We can also conclude that the Hierarchical model converges better than the naive model, less sensitive to the choice of priors, and give stabler results. It is more robust. Besides, all models with different methods using different priors have $P[\beta_{height}>0|Y] > 0.5$. Thus, they all agree that height have a positive relationship with draft.
 
 
 ```{r, cache=TRUE,warning=F,message=F,echo=F, results = 'hide'}
@@ -599,8 +601,10 @@ quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ### Mixing
 
 ```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
-mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
+mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal() + 
+  ggtitle("Naive Model")
 mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
+  ggtitle("Naive Model") +
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
@@ -609,16 +613,18 @@ mcmc_rank_hist(fit_simple_3$draws("slope_height")) +
 ```
 
 ```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
-mcmc_trace(fit$draws("slope_height")) + theme_minimal()
+mcmc_trace(fit$draws("slope_height")) + theme_minimal() + 
+  ggtitle("Hierarchical Model")
 mcmc_rank_hist(fit$draws("slope_height")) + 
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
-  labels = c("0", "", "1000", "", "2000"))
+  labels = c("0", "", "1000", "", "2000"))+ 
+  ggtitle("Hierarchical Model")
 ```
 
-We choose to use 2 chains so we could check whether the chain mixes well. Here, we are using chains for `slope_height` to check whether the chain mixes well. `height_slope_positive` is binary, which could be assessed, but would show less chain movements than continuous models. Ensuring that both variables are form the same model and method, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes fast. From both trace plots, we can see that the two chains overlap a lot, showing a carterpillar shape; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
+We choose to use 2 chains so we could check whether the chain mixes well. Here, we are using chains for `slope_height`. `height_slope_positive` is binary, which could be assessed, but would show less chain movements than continuous models. Since both variables are from the same model and method, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes well too. From both trace plots, we can see that the two chains overlap a lot, showing a carterpillar shape; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our models are fast mixing and ideal.
 
 ### Goodness of Fit
 
@@ -682,7 +688,7 @@ cal_plot <- ggplot(calibration_df_2, aes(x = mean_pred_2, y = obs_rate_2)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   coord_cartesian() + 
   labs(x = "Predicted probability", y = "Observed proportion",
-    title = "Calibration plot (Regular Model)") + theme_minimal()+
+    title = "Calibration plot (Naive Model)") + theme_minimal()+
   theme(axis.title = element_text(size = 14),plot.title = element_text(size = 16))
 
 ggsave(
@@ -698,13 +704,16 @@ For these calibration plots, we can see that the our actual coverages align clos
 
 ### Validity of VI
 
-CmdStan diagnose suggests that VI for both models have $\bar R$'s close to 1 and effective sample sizes satisfactory for all parameters. This suggests that VI provide stable posterior result. One thing to note is that this diagnose does not check the quality of VI itself. But evaluating the comparison between HMC and VI, we see that they indicate same conclusion for our research interest, so VI is likely well-specified.
+CmdStan diagnose suggests that VI for both models have $\bar R$'s close to 1 and effective sample sizes satisfactory for all parameters. This suggests that VI provide stable posterior result. One thing to note is that this diagnose does not check the quality of VI itself. But evaluating the comparison between HMC and VI, we see that they suggest same conclusion for our research interest, so VI is likely well-specified and robust.
 
 ## Discussion
 
 ### Conclusion
 
-Our results are consistent across both the regular Bayesian model and Hierachical model. In both models, the posterior results support a positive effect of height on the probability of being selected in the first round. As shown by the regression coefficient, holding other variables constant, a one-centimeter increase in height is associated with approximately a 5.1% ($e^{0.05} \approx 1.051$) increase in the odds of being selected in the first round. However, this interpretation is in terms of odds rather than probability, and the marginal effect on probability depends on the baseline probability. We also find that the Hierachical model is less sensitive to the choice of hyperparameters, which is consistent with the purpose of this model. Base on the result, we can generalize this phenomenon that taller player are more likely to be drafted in first round, leading to more taller NBA rookies and stars we see in recent years. 
+
+Our results are consistent across both the naive Bayesian model and Hierarchical model. In both models, the posterior results support a positive effect of height on the probability of being selected in the first round. As shown by the regression coefficient, holding other variables constant, a one-centimeter increase in height is associated with approximately a 5.1% ($e^{0.05} \approx 1.051$) increase in the odds of being selected in the first round. However, this interpretation is in terms of odds rather than probability, and the marginal effect on probability depends on the baseline probability. We also find that the Hierarchical model is less sensitive to the choice of hyper-parameters, which is consistent with the purpose of this model. The Hierarchical model generates more reliable and robust results compared to the naive model. Base on the result, we can generalize this phenomenon that taller player are more likely to be drafted in first round, leading to more taller NBA rookies and stars we see in recent years. The VI method output indicates that there is no strong Bayesian evidence that height have a positive association with draft as their 95% CI often includes 0, whereas HMC method gives 95% CI strictly above 0, suggesting the opposite, advocating a strong Bayesian evidence for a positive association.
+
+For the covariates we use, we find interesting conclusions as well. Specifically, the Hierarchical model with prior choice 1 using HMC returns three credible intervals that do not include zero. The 95% CI for $\beta_{\text{height}},\beta_{\text{pts}},\beta_{\text{age}}$ are [0.034, 0.071], [0.250, 0.397], and [-0.569, -0.365] respectively. Since the CI for s $\beta_{\text{height}}$ and $\beta_{\text{pts}}$ are entirely above zero, we conclude that there is strong Bayesian evidence that higher shooting efficiency percentage and height are associated with a significantly higher log-odds of draft round. Conversely, with the 95% CI for $\beta_{\text{age}}$ being entirely below zero, we conclude that there is strong Bayesian evidence that being older in age is associated with a significantly lower log-odds of draft round.
 
 ### Limitation
 
@@ -713,7 +722,7 @@ There are several limitations in this analysis. First, the data only include dra
 
 ### Future Study
 
-There are also several possible extensions for future work. If more time and resources were available, one possible direction would be to use a dataset that includes female basketball players and study whether a similar pattern holds there. Another possible extension would be to group players by factors such as college or team, and then perform grouped or hierarchical inference to study whether the effect of height differ across groups.
+There are also several possible extensions for future work. If more time and resources were available, one possible direction would be to use a dataset that includes female basketball players and study whether a similar pattern holds there. Another possible extension would be to group players by factors such as college or team, and then perform grouped or Hierarchical inference to study whether the effect of height differ across groups.
 
 ## References 
 

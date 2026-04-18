@@ -1,6 +1,6 @@
 ---
 title: "Appendix"
-author: "Jenni, Yamine, Max"
+author: "Jenni Tong 23988835, Yingming Sha 39664552, Max Yin 12580312"
 date: "2026-04-17"
 output:
   pdf_document: default
@@ -478,8 +478,10 @@ quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 
 
 ```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
-mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
+mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal() + 
+  ggtitle("Naive Model")
 mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
+  ggtitle("Naive Model") +
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
@@ -488,18 +490,22 @@ mcmc_rank_hist(fit_simple_3$draws("slope_height")) +
 ```
 
 ```{r,warning=F,message=F,fig.show="hold", out.width="50%",fig.height=3}
-mcmc_trace(fit$draws("slope_height")) + theme_minimal()
+mcmc_trace(fit$draws("slope_height")) + theme_minimal() + 
+  ggtitle("Hierarchical Model")
 mcmc_rank_hist(fit$draws("slope_height")) + 
   ylab("Count") + 
   theme_minimal()+
   scale_x_continuous(
   breaks = c(0, 500, 1000, 1500, 2000),
-  labels = c("0", "", "1000", "", "2000"))
+  labels = c("0", "", "1000", "", "2000"))+ 
+  ggtitle("Hierarchical Model")
 ```
 
 
 ```{r,fig.width=4,fig.height=3, cache=TRUE,warning=F,message=F}
-draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height", "slope_weight","slope_pts","slope_ast","slope_age", "slope_ts")))
+draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height",
+                                    "slope_weight","slope_pts","slope_ast",
+                                    "slope_age", "slope_ts")))
 
 temporary_data$p_hat <- sapply(
   1:nrow(temporary_data),
