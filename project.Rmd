@@ -9,9 +9,13 @@ output: pdf_document
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-# Background Discussion
+## Abstract
 
-## Problem formulation
+In this project, we examine the relationship between NBA player's height and their draft outcome. The National Basketball Association draft plays a crucial role in shaping players’ professional careers, making it important to understand which factors influence selection. Thus, we use a Bayesian frame work to model this relationship. Specifically, we compare two approaches: a standard Bayesian model and a hierarchical model that accounts for additional structure in the data. To estimate the models, we apply both Hamiltonian Monte Carlo and Variational Inference, allowing us to assess the robustness of our results across different inference methods. Our findings indicate that the posterior probability of a positive effect of height on better draft outcome is high, suggesting that taller players are more likely to be selected earlier, holding other variables constant.
+
+## Background Discussion
+
+### Problem formulation
 
 The NBA Draft is an annual event where all 30 NBA teams select new rookie players, serving as the primary pathway for new talent to enter the league. It consists of two rounds, with a total of 60 draft selections. Draft order is largely determined by teams' performance in the previous season, with weaker teams generally receiving earlier picks, which allows them to rebuild their roasters through the draft. Before the draft, teams evaluate prospects using information from the NBA Draft Combine, private workouts, and scouting reports, taking into account physical attributes, technical ability, and projected development.
 
@@ -23,13 +27,13 @@ Among the many factors that may influence draft outcomes, height has long been r
 
 Mathematically, we model this via Bayesian logistic regression, where the binary outcome (first round = 1, second round = 0) is regressed on player height. The key quantity of interest is the **posterior probability that the slope on height is positive**: $$P(\beta_{\text{height}} > 0 \mid \mathbf{Y})$$
 
-## Team Contributions
+### Team Contributions
 
 Jenni (40%) is primarily responsible with models, such as model development, stan code, model set up, model diagnostics, and data cleaning. Yasmine (30%) is primarily responsible with the dataset and goodness of fit, such as explorative data analysis, calibration, plot interpretation, background introduction, problem formulation, data cleaning, model selection, discussion and limitation. Max (30%) is responsible with finding the actual data, formulating problem, and worked on literature review, discussion, limitation, reference, and result comparison. We all contributed significant amount of time and effort in the project.
 
 **Public repository link:** <https://github.com/ymyms/stat-405-project>
 
-## Literature Review
+### Literature Review
 
 A growing body of literature examines how NBA teams evaluate talent and make draft decisions, focusing on player performance and observable characteristics. A closely related study is Greer et al. (2019), which uses a logistic regression framework to analyze the determinants of NBA draft selection. The authors find that scoring ability is the most important predictor of whether a player is selected, while other factors such as team success and player characteristics also play a role.
 Complementing this, Cui et al. (2019) analyze NBA Draft Combine data and show that anthropometric characteristics, particularly height and wingspan, are key factors distinguishing drafted from undrafted players. Their findings highlight the importance of physical attributes in talent identification and suggest that taller players have a systematic advantage in draft outcomes.
@@ -38,7 +42,7 @@ Despite these contributions, existing studies primarily focus on whether a playe
 
 This paper contributes to the literature by focusing on the probability of being selected in the first round and adopting a Bayesian logistic regression framework. This approach allows for direct estimation of the posterior probability that height has a positive effect on draft selection, providing a more intuitive and decision-relevant interpretation. Using a publicly available NBA player dataset from [Kaggle](https://www.kaggle.com/datasets/justinas/nba-players-data), this study offers a complementary perspective on how physical attributes influence draft outcomes.
 
-## Variable Introduction
+### Variable Introduction
 
 The primary variables which might associate with draft round are
 
@@ -53,11 +57,11 @@ The primary variables which might associate with draft round are
 * Percentage of available offensive rebounds the player grabbed while he was on the floor
 * Measure of the player's shooting efficiency that takes into account free throws, 2 and 3 point shots
 
-# Explorative Data Analysis
+## Explorative Data Analysis
 
 The goal of this section is to examine the distribution of player height and its relationship with draft round.
 
-## Data Cleaning
+### Data Cleaning
 
 ```{r load-packages, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 library(ggplot2) ; library(dplyr) ; library(tidyverse) ; library(broom)
@@ -79,7 +83,7 @@ rookie_data$draft_round <- ifelse(rookie_data$draft_round==1,1,0)
 ```
 Four cleaning steps were applied to prepare the data for modelling. First, we restricted the data to players drafted in 2006 or later, retaining only the past two decades of draft classes. This ensures that our findings reflect the preferences and evaluation criteria of the modern NBA. Second, players recorded as undrafted were excluded, since our research question concerns the distinction between first- and second-round picks. Specifically, undrafted players represent a qualitatively different pathway into the league. Third, to avoid the statistical issue of repeated observations per player (the same player's height and draft round appearing across multiple seasons), we retained only each player's earliest season. This gives one observation per unique player, ensuring the independence assumption of logistic regression. Fourth, the `draft_round` variable was recoded as a binary indicator: 1 for first-round selections and 0 for second-round selections.
 
-## Distribution of Draft Round and Height
+### Distribution of Draft Round and Height
 
 ```{r eda-bar, fig.height=3, fig.width=4, fig.align='center'}
 barplot <- ggplot(rookie_data,
@@ -148,7 +152,7 @@ rookie_data %>%
 
 From the dot plot, we can see that when player's height is below 180cm, it is very unlikely for the player to be drafted in the first round. After 180cm, the nuisance becomes less obvious. From the boxplot and table, we can see that the first-round picks are on average taller than second-round picks, though the difference is modest and the distributions overlap considerably. The EDA is consistent with the prior findings by Cui et al, that anthropometric characteristics play a key role in drafts. 
 
-## Regression Model Selection
+### Regression Model Selection
 
 ```{r}
 temporary_data <- rookie_data[,-c(1,2,3,7,8,11,22)]
@@ -157,17 +161,18 @@ temporary_data[] <- lapply(temporary_data, as.numeric)
 ```
 
 
-For the regression model, we will keep the six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct` (age, height, weight, points per game, assists per game, and true shooting percentage). These covariates were chosen because they reflect both players’ physical characteristics and on-court performance, which are both important parts of draft evaluation. Height and weight represent body size and physical profile. Age is included because younger players are often considered to have greater development potential. Points and assists summarize offensive production and playmaking ability. True shooting percentage is included as a measure of scoring efficiency. Together, these variables form a simple and reasonable set of predictors for first-round draft selection, while keeping height as the main variable of interest.
+For the regression model, to avoid confounding and potential bias, we would select six covariates, `age`, `player_height`, `player_weight`, `pts`, `ast`, and `ts_pct` (age, height, weight, points per game, assists per game, and true shooting percentage). These covariates were chosen because they reflect both players’ physical characteristics and on-court performance, which are both important parts of draft evaluation. Height and weight represent body size and physical profile. Age is included because younger players are often considered to have greater development potential. Points and assists summarize offensive production and playmaking ability. True shooting percentage is included as a measure of scoring efficiency. Together, these variables form a simple and reasonable set of predictors for first-round draft selection, while keeping height as the main variable of interest.
 
 Although height is the main variable of interest in this project, a model with height alone would be too simple, and might neglect underlying relationships. We therefore include these additional covariates to account for other player characteristics that may also affect first-round selection, while keeping height as the primary coefficient of interest.
 
-# Bayesian Model
+## Bayesian Models
 
 We would like to propose two models- a regular model and a hierarchical model. We would use two methods to compute the posterior: Hamiltonian Monte Carlo and Variational Inference. HMC using stan is very fast and efficient, and VI works well for our large dataset with 909 observaions. We would compare and contrast between the methods for each model.
 
-## Regular Bayesian Model
+### Regular Bayesian Model and Output
 
-The model has distribution as following.
+A regular model is suggested, where we assume that the coefficients for different covariates are from the same family of distributions, but still differ in terms of hyper-parameters. This gives the model more freedom. The model has notations as following.
+
 $$\text{intercept} \sim N(0, 1)$$
 $$\beta_i \sim N(0, \sigma_i)$$
 
@@ -380,11 +385,12 @@ mean(simple.variational_3$draws()[, "height_slope_positive"])
 quantile(simple.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
-## Hierarchical model
+### Hierarchical Model and Output
 
-This hierarchical model differ from the regular ones, wher individuals might be in specific groups. For sake of this project, we use hierarchical model, assuming that coefficients for different parameters might have the same distribution.
+This hierarchical model differ from the classical Hierarchical models, where individuals in different groups are studied. For sake of this project, we use hierarchical model, assuming that coefficients for different covariates are from the same distribution. Specifically, we are suggesting that all covariates might have similar effects on draft rounds.
 
-The model has distribution as following.
+The model has notations as following.
+
 $$\text{intercept} \sim N(0, 1)$$
 $$\text{center} \sim N(\mu,\sigma)$$
 
@@ -588,9 +594,9 @@ quantile(fit.variational_3$draws()[, "slope_height"], c(0.025,0.975))
 ```
 
 
-# MCMC Diagnostics
+## MCMC Diagnostics
 
-## Mixing
+### Mixing
 ```{r, fig.height=1.5,fig.width=5.5, cache=TRUE,warning=F,message=F,echo=F}
 trace <- mcmc_trace(fit_simple_3$draws("slope_height")) + theme_minimal()
 hist <- mcmc_rank_hist(fit_simple_3$draws("slope_height")) + 
@@ -617,7 +623,7 @@ gridExtra::grid.arrange(trace,hist,ncol=2,
 
 We choose to use 2 chains so we could check whether the chain mixes well. Here, we are using chains for `slope_height` to check whether the chain mixes well. `height_slope_positive` is binary, which could be assessed, but would show less chain movements than continuous models. Ensuring that both variables are form the same model and method, if the plots for `slope_height` suggests fast mixing, then it means that the model for `height_slope_positive` mixes fast. From both trace plots, we can see that the two chains overlap a lot, showing a carterpillar shape; from the histogram, we can see two approximately uniform histograms. Both plots suggests that our model is fast mixing.
 
-## Goodness of Fit
+### Goodness of Fit
 
 ```{r,fig.width=4,fig.height=3, cache=TRUE,warning=F,message=F,echo=F}
 draws_df <- as_draws_df(fit$draws(c("intercept", "slope_height", "slope_weight","slope_pts","slope_ast","slope_age", "slope_ts")))
@@ -649,11 +655,12 @@ ggplot(calibration_df, aes(x = mean_pred, y = obs_rate)) +
 
 For this calibration plot, we can see that the our actual coverage align closely with nominal coverage, which suggests that our model is well-specified, so calibration holds.
 
-## Validity of VI
+
+### Validity of VI
 
 CmdStan diagnose suggests that VI for both models have $\bar R$'s close to 1 and effective sample sizes satisfactory for all parameters. This suggests that VI provide stable posterior result. One thing to note is that this diagnose does not check the quality of VI itself. But evaluating the comparison between HMC and VI, we see that they indicate same conclusion for our research interest, so VI is likely well-specified.
 
-# Discussion and Limitations
+## Discussion and Limitations
 
 Our results are consistent across both the regular Bayesian model and hierachical model. In both models, the posterior results support a positive effect of height on the probability of being selected in the first round. We also find that the hierachical model is less sensitive to the choice of hyperparameters, which is consistent with the purpose of this model.
 
@@ -661,7 +668,7 @@ There are several limitations in this analysis. First, the data only include dra
 
 There are also several possible extensions for future work. If more time and resouces were available, one possible direction would be to use a dataset that includes female basketball players and study whether a similar pattern holds there. Another possible extension would be to group players by factors such as college or team, and then perform grouped or hierarchical inference to study whether the effect of height differ across groups.
 
-# References 
+## References 
 
 Cirtautas, J. (2023, October 13). NBA players. Kaggle. https://www.kaggle.com/datasets/justinas/nba-players-data/code 
 
