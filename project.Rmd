@@ -700,13 +700,20 @@ For these calibration plots, we can see that the our actual coverages align clos
 
 CmdStan diagnose suggests that VI for both models have $\bar R$'s close to 1 and effective sample sizes satisfactory for all parameters. This suggests that VI provide stable posterior result. One thing to note is that this diagnose does not check the quality of VI itself. But evaluating the comparison between HMC and VI, we see that they indicate same conclusion for our research interest, so VI is likely well-specified.
 
-## Discussion and Limitations
+## Discussion
 
-Our results are consistent across both the regular Bayesian model and hierachical model. In both models, the posterior results support a positive effect of height on the probability of being selected in the first round. As shown by the regression coefficient, holding other variables constant, a one-centimeter increase in height is associated with approximately a 5.1% ($e^{0.05} \approx 1.051$) increase in the odds of being selected in the first round. However, this interpretation is in terms of odds rather than probability, and the marginal effect on probability depends on the baseline probability. We also find that the hierachical model is less sensitive to the choice of hyperparameters, which is consistent with the purpose of this model. Base on the result, we can generalize this phenomenon that taller player are more likely to be drafted in first round, leading to more taller NBA rookies and stars we see in recent years. 
+### Conclusion
 
-There are several limitations in this analysis. First, the data only include drafted NBA players from the past two decades, so our conclusions should be interpreted within this time period and should not be extrapolated too far beyond it. Second, this is an obeservation inference problem, so the positive relationship we found between height and first-round selection should not be interpreted as a causal effect.
+Our results are consistent across both the regular Bayesian model and Hierachical model. In both models, the posterior results support a positive effect of height on the probability of being selected in the first round. As shown by the regression coefficient, holding other variables constant, a one-centimeter increase in height is associated with approximately a 5.1% ($e^{0.05} \approx 1.051$) increase in the odds of being selected in the first round. However, this interpretation is in terms of odds rather than probability, and the marginal effect on probability depends on the baseline probability. We also find that the Hierachical model is less sensitive to the choice of hyperparameters, which is consistent with the purpose of this model. Base on the result, we can generalize this phenomenon that taller player are more likely to be drafted in first round, leading to more taller NBA rookies and stars we see in recent years. 
 
-There are also several possible extensions for future work. If more time and resouces were available, one possible direction would be to use a dataset that includes female basketball players and study whether a similar pattern holds there. Another possible extension would be to group players by factors such as college or team, and then perform grouped or hierarchical inference to study whether the effect of height differ across groups.
+### Limitation
+
+There are several limitations in this analysis. First, the data only include drafted NBA players from the past two decades, so our conclusions should be interpreted within this time period and should not be extrapolated too far beyond it. Second, this is an observation inference problem, so the positive relationship we found between height and first-round selection should not be interpreted as a causal effect. Third, the NBA players in the dataset are only male players, their nationality are primarily America and Canada, with Asian people being underrepresented. This means that the conclusion may not hold for female and Asian basketball players, and also those from other countries.
+
+
+### Future Study
+
+There are also several possible extensions for future work. If more time and resources were available, one possible direction would be to use a dataset that includes female basketball players and study whether a similar pattern holds there. Another possible extension would be to group players by factors such as college or team, and then perform grouped or hierarchical inference to study whether the effect of height differ across groups.
 
 ## References 
 
